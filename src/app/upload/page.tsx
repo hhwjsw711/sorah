@@ -2,33 +2,50 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 export default function Upload() {
   const [prompt, setPrompt] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  
+  const generateUploadUrl = useMutation(api.tasks.generateUploadUrl);
+  const createProject = useMutation(api.tasks.createProject);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploading(true);
     
-    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-    const formData = new FormData();
-    formData.append("prompt", prompt);
-    files.forEach((file, i) => {
-      formData.append(`file${i}`, file);
-    });
+    try {
+      console.log("uploading files:", files.length);
+      
+      const fileIds = [];
+      for (const file of files) {
+        console.log("uploading:", file.name, file.size);
+        const uploadUrl = await generateUploadUrl();
+        const result = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        const { storageId } = await result.json();
+        console.log("uploaded:", storageId);
+        fileIds.push(storageId);
+      }
 
-    const response = await fetch(`${convexUrl}/upload`, {
-      method: "POST",
-      body: formData,
-    });
-
-    const { projectId } = await response.json();
-    console.log("created project:", projectId);
-    setPrompt("");
-    setFiles([]);
-    setUploading(false);
+      console.log("creating project with", fileIds.length, "files");
+      const projectId = await createProject({ prompt, files: fileIds });
+      console.log("created project:", projectId);
+      
+      setPrompt("");
+      setFiles([]);
+    } catch (error) {
+      console.error("upload error:", error);
+      alert(`upload failed: ${error}`);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (

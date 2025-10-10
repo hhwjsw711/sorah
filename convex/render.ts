@@ -1,3 +1,5 @@
+"use node";
+
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { Sandbox } from "@vercel/sandbox";
@@ -8,6 +10,7 @@ export const render = action({
     projectId: v.string(),
   },
   handler: async (ctx, { projectId }) => {
+    
     const sandbox = await Sandbox.create({
       source: {
         url: "https://github.com/caffeinum/remotion-template",
