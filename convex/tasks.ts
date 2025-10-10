@@ -28,3 +28,19 @@ export const createProject = mutation({
     });
   },
 });
+
+export const getProjects = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("projects").order("desc").collect();
+  },
+});
+
+export const getProject = query({
+  args: {
+    id: v.id("projects"),
+  },
+  handler: async (ctx, { id }) => {
+    return await ctx.db.get(id);
+  },
+});
