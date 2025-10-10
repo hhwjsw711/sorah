@@ -25,6 +25,7 @@ export const createProject = mutation({
       prompt,
       files,
       createdAt: Date.now(),
+      status: "processing",
     });
   },
 });
@@ -42,5 +43,18 @@ export const getProject = query({
   },
   handler: async (ctx, { id }) => {
     return await ctx.db.get(id);
+  },
+});
+
+export const completeProject = mutation({
+  args: {
+    id: v.id("projects"),
+  },
+  handler: async (ctx, { id }) => {
+    await ctx.db.patch(id, {
+      status: "completed",
+      completedAt: Date.now(),
+    });
+    return id;
   },
 });

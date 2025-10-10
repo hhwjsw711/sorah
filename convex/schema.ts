@@ -10,5 +10,7 @@ export default defineSchema({
     prompt: v.string(),
     files: v.array(v.id("_storage")),
     createdAt: v.number(),
+    status: v.optional(v.union(v.literal("processing"), v.literal("completed"))),
+    completedAt: v.optional(v.number()),
   }),
 });
