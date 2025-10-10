@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 async function main() {
   const sandbox = await Sandbox.create({
     source: {
-      url: 'https://github.com/vercel/sandbox-example-next.git',
+      url: 'https://github.com/makosst/sorah-sandbox-template',
       type: 'git',
     },
     resources: { vcpus: 4 },
