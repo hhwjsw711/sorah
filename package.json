@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "generate-api": "convex-helpers ts-api-spec",
+    "generate-api": "convex-helpers ts-api-spec && mv convexApi*.ts api.ts",
     "lint": "eslint"
   },
   "dependencies": {
