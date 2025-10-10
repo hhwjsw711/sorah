@@ -1,11 +1,14 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   const projects = useQuery(api.tasks.getProjects);
+  const simulateCompleted = useMutation(api.tasks.simulateCompleted);
+  const deleteProject = useMutation(api.tasks.deleteProject);
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <div className="max-w-6xl mx-auto px-6 py-16">
@@ -48,6 +51,23 @@ export default function Home() {
                       {project.status || "processing"}
                     </div>
                   </div>
+
+                  {project.fileUrls && project.fileUrls.length > 0 && (
+                    <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
+                      {project.fileUrls.map((url, i) => (
+                        url && (
+                          <div key={i} className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                            <Image
+                              src={url}
+                              alt={`file ${i + 1}`}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  )}
 
                   {project.script && (
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
@@ -98,6 +118,21 @@ export default function Home() {
                       <p className="text-sm text-red-600">{project.error}</p>
                     </div>
                   )}
+
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => simulateCompleted({ id: project._id })}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
+                    >
+                      simulate completed
+                    </button>
+                    <button
+                      onClick={() => deleteProject({ id: project._id })}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                    >
+                      delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
