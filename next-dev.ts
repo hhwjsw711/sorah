@@ -29,7 +29,19 @@ async function main() {
     console.log('installing packages failed');
     process.exit(1);
   }
- 
+
+  console.log(`Setting up environment file...`);
+  const envSetup = await sandbox.runCommand({
+    cmd: 'cp',
+    args: ['.env.example', '.env'],
+    stderr: process.stderr,
+    stdout: process.stdout,
+  });
+
+  if (envSetup.exitCode != 0) {
+    console.log('Warning: Could not copy .env.example to .env (template may not exist)');
+  }
+
   console.log(`Starting the development server...`);
   await sandbox.runCommand({
     cmd: 'npm',
