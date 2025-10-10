@@ -10,6 +10,8 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "convex": "^1.27.5"
+    "@remotion/cli": "4.0.357",
+    "convex": "^1.27.5",
+    "remotion": "4.0.357"
   }
 }
