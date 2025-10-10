@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# sorah
 
-## Getting Started
+video creation platform using convex and reelful api
 
-First, run the development server:
+## setup
 
+1. install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+bun install
+```
+
+2. configure environment variables in `.env.local`:
+```bash
+CONVEX_DEPLOYMENT=dev:your-deployment
+NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
+NEXT_PUBLIC_REELFUL_API_URL=http://localhost:8000
+```
+
+3. run the reelful api (see `docs/reelful-api.md` for setup instructions)
+
+4. start the dev server:
+```bash
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- upload 5-10 videos or photos
+- describe your video idea
+- reelful api generates:
+  - script (15 second social media reel)
+  - voiceover audio
+  - background music
+  - animated videos from images
+- all intermediate values stored in convex
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## architecture
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **frontend**: next.js 15 with react 19
+- **backend**: convex for database and storage
+- **video generation**: reelful api (dedalus ai + fal + elevenlabs)
+- **schema**: projects table stores:
+  - prompt and uploaded files
+  - generated script
+  - audio/music/video urls
+  - processing status and errors

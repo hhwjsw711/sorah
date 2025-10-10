@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useMutation } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 export default function Upload() {
@@ -12,6 +12,7 @@ export default function Upload() {
   
   const generateUploadUrl = useMutation(api.tasks.generateUploadUrl);
   const createProject = useMutation(api.tasks.createProject);
+  const processProjectWithReelful = useAction(api.tasks.processProjectWithReelful);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +38,17 @@ export default function Upload() {
       console.log("creating project with", fileIds.length, "files");
       const projectId = await createProject({ prompt, files: fileIds });
       console.log("created project:", projectId);
+
+      const reelfulApiUrl = process.env.NEXT_PUBLIC_REELFUL_API_URL;
+      if (reelfulApiUrl) {
+        console.log("triggering reelful api...");
+        processProjectWithReelful({
+          projectId,
+          reelfulApiUrl,
+        }).catch((error) => {
+          console.error("reelful api error:", error);
+        });
+      }
       
       setPrompt("");
       setFiles([]);

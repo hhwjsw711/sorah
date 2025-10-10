@@ -5,7 +5,7 @@ import { api } from "../../convex/_generated/api";
 import Link from "next/link";
 
 export default function Home() {
-  const tasks = useQuery(api.tasks.get);
+  const projects = useQuery(api.tasks.getProjects);
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <div className="max-w-6xl mx-auto px-6 py-16">
@@ -23,13 +23,84 @@ export default function Home() {
           </Link>
         </div>
 
-        {tasks && tasks.length > 0 && (
-          <div className="grid gap-4">
-            {tasks.map(({ _id, text }) => (
-              <div key={_id} className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-                {text}
-              </div>
-            ))}
+        {projects && projects.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">projects</h2>
+            <div className="grid gap-4">
+              {projects.map((project) => (
+                <div key={project._id} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <p className="text-gray-800 mb-2">{project.prompt}</p>
+                      <div className="flex items-center gap-3 text-sm text-gray-500">
+                        <span>{project.files.length} files</span>
+                        <span>•</span>
+                        <span>{new Date(project.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      project.status === "completed" 
+                        ? "bg-green-100 text-green-700"
+                        : project.status === "failed"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}>
+                      {project.status || "processing"}
+                    </div>
+                  </div>
+
+                  {project.script && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium text-gray-700 mb-2">script</p>
+                      <p className="text-sm text-gray-600">{project.script}</p>
+                    </div>
+                  )}
+
+                  {(project.audioUrl || project.musicUrl || project.videoUrls) && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {project.audioUrl && (
+                        <a 
+                          href={project.audioUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 transition-colors"
+                        >
+                          🎤 audio
+                        </a>
+                      )}
+                      {project.musicUrl && (
+                        <a 
+                          href={project.musicUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 transition-colors"
+                        >
+                          🎵 music
+                        </a>
+                      )}
+                      {project.videoUrls?.map((url, i) => (
+                        <a 
+                          key={i}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-pink-100 text-pink-700 rounded-lg text-sm hover:bg-pink-200 transition-colors"
+                        >
+                          🎬 video {i + 1}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {project.error && (
+                    <div className="mt-4 p-4 bg-red-50 rounded-lg">
+                      <p className="text-sm font-medium text-red-700 mb-1">error</p>
+                      <p className="text-sm text-red-600">{project.error}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
