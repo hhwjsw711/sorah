@@ -288,7 +288,7 @@ export const processProjectWithAI = action({
     let audioUrl: string | null | undefined;
     let srtContent: string | undefined;
     let musicUrl: string | null | undefined;
-    let videoUrls: string[] = [];
+    const videoUrls: string[] = [];
 
     try {
       const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
