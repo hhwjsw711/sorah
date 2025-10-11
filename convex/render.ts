@@ -166,7 +166,7 @@ export const renderVideo = action({
       }
       console.log("[render] files uploaded");
 
-      console.log("[render] running claude code to edit video...");
+      console.log("[render] running claude agent to edit video...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
         step: "claude video editing",
@@ -192,8 +192,10 @@ we use bun btw
 
 composition should be portrait!`;
 
+      await sandbox.files.write("/home/user/prompt.txt", videoEditorPrompt);
+      
       const claudeResult = await sandbox.commands.run(
-        `claude --print --dangerously-skip-permissions --verbose --output-format stream-json "${videoEditorPrompt.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+        `bun run claude-agent.ts`,
         { 
           cwd: "/home/user",
           timeoutMs: 600000,
