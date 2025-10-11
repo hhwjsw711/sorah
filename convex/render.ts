@@ -28,7 +28,10 @@ export const renderVideo = action({
           url: "https://github.com/caffeinum/remotion-template",
           type: "git",
         },
+        timeout: 600000,
       });
+      
+      console.log("sandbox created:", sandbox.sandboxId);
 
       console.log("installing dependencies...");
       const install = await sandbox.runCommand({
