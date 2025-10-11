@@ -311,3 +311,124 @@ export const runSandboxCommand = action({
     }
   },
 });
+
+export const listSandboxFiles = action({
+  args: {
+    sandboxId: v.string(),
+    path: v.optional(v.string()),
+  },
+  handler: async (ctx, { sandboxId, path = "/home/user/out" }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId);
+      
+      const files = await sandbox.files.list(path);
+      
+      return {
+        success: true,
+        files: files.map(f => ({
+          name: f.name,
+          path: f.path,
+          isDir: f.type === "dir",
+        })),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to list files",
+      };
+    }
+  },
+});
+
+export const readSandboxFile = action({
+  args: {
+    sandboxId: v.string(),
+    filePath: v.string(),
+  },
+  handler: async (ctx, { sandboxId, filePath }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId);
+      
+      const content = await sandbox.files.read(filePath);
+      
+      let base64Content = "";
+      if (typeof content === 'string') {
+        base64Content = Buffer.from(content).toString('base64');
+      } else {
+        const uint8Array = new Uint8Array(content as ArrayBuffer);
+        base64Content = Buffer.from(uint8Array).toString('base64');
+      }
+      
+      return {
+        success: true,
+        content: base64Content,
+        isText: typeof content === 'string',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to read file",
+      };
+    }
+  },
+});
+
+export const downloadSandboxFile = action({
+  args: {
+    sandboxId: v.string(),
+    filePath: v.string(),
+  },
+  handler: async (ctx, { sandboxId, filePath }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId);
+      
+      const content = await sandbox.files.read(filePath);
+      
+      let fileBuffer: ArrayBuffer | Buffer;
+      if (typeof content === 'string') {
+        fileBuffer = Buffer.from(content);
+      } else {
+        fileBuffer = content as ArrayBuffer;
+      }
+
+      const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const fileName = filePath.split('/').pop() || 'file';
+      const mimeType = fileName.endsWith('.mp4') ? 'video/mp4' 
+        : fileName.endsWith('.txt') ? 'text/plain'
+        : fileName.endsWith('.srt') ? 'text/plain'
+        : 'application/octet-stream';
+
+      const uploadResponse: Response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": mimeType },
+        body: fileBuffer as BodyInit,
+      });
+      
+      const { storageId }: { storageId: Id<"_storage"> } = await uploadResponse.json();
+      const downloadUrl: string | null = await ctx.storage.getUrl(storageId);
+      
+      return {
+        success: true,
+        downloadUrl,
+        fileName,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to download file",
+      };
+    }
+  },
+});

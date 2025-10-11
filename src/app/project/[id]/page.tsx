@@ -19,6 +19,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const regenerateAnimations = useAction(api.tasks.regenerateAnimations);
   const getSandboxInfo = useAction(api.render.getSandboxInfo);
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
+  const listSandboxFiles = useAction(api.render.listSandboxFiles);
+  const readSandboxFile = useAction(api.render.readSandboxFile);
+  const downloadSandboxFile = useAction(api.render.downloadSandboxFile);
   const [rendering, setRendering] = useState(false);
   const [regeneratingScript, setRegeneratingScript] = useState(false);
   const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
@@ -29,6 +32,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [command, setCommand] = useState("");
   const [commandOutput, setCommandOutput] = useState<{ stdout: string; stderr: string; exitCode: number } | null>(null);
   const [runningCommand, setRunningCommand] = useState(false);
+  const [outFiles, setOutFiles] = useState<{ name: string; path: string; isDir: boolean }[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{ name: string; content: string; isText: boolean } | null>(null);
+  const [loadingFileContent, setLoadingFileContent] = useState(false);
 
   if (!project) {
     return (
@@ -460,8 +467,121 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
             )}
 
+            {project.sandboxId && (
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-gray-700">sandbox files (out/)</p>
+                  <button
+                    onClick={async () => {
+                      setLoadingFiles(true);
+                      try {
+                        const result = await listSandboxFiles({ sandboxId: project.sandboxId! });
+                        if (result.success && "files" in result) {
+                          setOutFiles(result.files || []);
+                        }
+                      } finally {
+                        setLoadingFiles(false);
+                      }
+                    }}
+                    disabled={loadingFiles}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    {loadingFiles ? "loading..." : "list files"}
+                  </button>
+                </div>
+                
+                {outFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {outFiles.map((file) => (
+                      <div key={file.path} className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            if (!file.isDir) {
+                              setLoadingFileContent(true);
+                              setSelectedFile(null);
+                              try {
+                                const result = await readSandboxFile({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "content" in result) {
+                                  setSelectedFile({
+                                    name: file.name,
+                                    content: result.content || "",
+                                    isText: result.isText || false,
+                                  });
+                                }
+                              } finally {
+                                setLoadingFileContent(false);
+                              }
+                            }
+                          }}
+                          disabled={file.isDir || loadingFileContent}
+                          className="flex-1 text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{file.isDir ? "📁" : "📄"}</span>
+                            <span className="text-sm font-mono">{file.name}</span>
+                          </div>
+                        </button>
+                        {!file.isDir && (
+                          <button
+                            onClick={async () => {
+                              const result = await downloadSandboxFile({ 
+                                sandboxId: project.sandboxId!, 
+                                filePath: file.path 
+                              });
+                              if (result.success && "downloadUrl" in result && result.downloadUrl) {
+                                window.open(result.downloadUrl, '_blank');
+                              }
+                            }}
+                            className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs"
+                          >
+                            ⬇
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selectedFile && (
+                  <div className="mt-4 p-4 bg-black rounded-lg border border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-green-400 font-mono text-sm">{selectedFile.name}</p>
+                      <button
+                        onClick={() => setSelectedFile(null)}
+                        className="text-gray-400 hover:text-gray-200 text-xs"
+                      >
+                        close
+                      </button>
+                    </div>
+                    {selectedFile.isText ? (
+                      <pre className="text-gray-300 font-mono text-xs whitespace-pre-wrap overflow-x-auto">
+                        {atob(selectedFile.content)}
+                      </pre>
+                    ) : selectedFile.name.endsWith('.mp4') || selectedFile.name.endsWith('.webm') ? (
+                      <video
+                        controls
+                        className="w-full rounded"
+                        src={`data:video/mp4;base64,${selectedFile.content}`}
+                      />
+                    ) : selectedFile.name.endsWith('.png') || selectedFile.name.endsWith('.jpg') || selectedFile.name.endsWith('.jpeg') ? (
+                      <img
+                        alt={selectedFile.name}
+                        className="w-full rounded"
+                        src={`data:image/png;base64,${selectedFile.content}`}
+                      />
+                    ) : (
+                      <div className="text-gray-400 text-xs">binary file preview not available</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="border-t pt-6">
-              <p className="text-sm font-medium text-gray-700 mb-3">output files (out/)</p>
+              <p className="text-sm font-medium text-gray-700 mb-3">convex storage</p>
               {project.renderedVideoUrl ? (
                 <>
                   <p className="text-xs text-gray-500 mb-3">rendered video ready</p>

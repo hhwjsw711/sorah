@@ -138,10 +138,28 @@ export type PublicApiType = {
     >;
   };
   render: {
+    downloadSandboxFile: FunctionReference<
+      "action",
+      "public",
+      { filePath: string; sandboxId: string },
+      any
+    >;
     getSandboxInfo: FunctionReference<
       "action",
       "public",
       { sandboxId: string },
+      any
+    >;
+    listSandboxFiles: FunctionReference<
+      "action",
+      "public",
+      { path?: string; sandboxId: string },
+      any
+    >;
+    readSandboxFile: FunctionReference<
+      "action",
+      "public",
+      { filePath: string; sandboxId: string },
       any
     >;
     runSandboxCommand: FunctionReference<
