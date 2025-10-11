@@ -2,10 +2,10 @@
 
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { HeroSection } from "@/components/ui/hero-section-dark";
 
 export default function Home() {
   const projects = useQuery(api.tasks.getProjects);
@@ -15,22 +15,30 @@ export default function Home() {
   const router = useRouter();
   const [renderingIds, setRenderingIds] = useState<Set<string>>(new Set());
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      <div className="max-w-6xl mx-auto px-6 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            sorah
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            turn your videos into magic
-          </p>
-          <Link href="/upload">
-            <button className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full text-lg font-semibold hover:shadow-lg transition-all hover:scale-105">
-              create project
-            </button>
-          </Link>
-        </div>
+    <main className="min-h-screen">
+      <HeroSection
+        title="turn your videos into magic"
+        subtitle={{
+          regular: "create stunning video content with ",
+          gradient: "ai-powered editing",
+        }}
+        description="upload your raw footage and let our ai transform it into polished, professional videos in minutes"
+        ctaText="create project"
+        ctaHref="/upload"
+        bottomImage={{
+          light: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=1200&h=675&fit=crop",
+          dark: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=1200&h=675&fit=crop",
+        }}
+        gridOptions={{
+          angle: 65,
+          opacity: 0.4,
+          cellSize: 50,
+          lightLineColor: "#9333ea",
+          darkLineColor: "#7c3aed",
+        }}
+      />
 
+      <div className="max-w-6xl mx-auto px-6 py-16">
         {projects && projects.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">projects</h2>

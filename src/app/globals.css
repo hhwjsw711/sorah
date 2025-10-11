@@ -120,3 +120,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes grid {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(var(--cell-size));
+  }
+}
