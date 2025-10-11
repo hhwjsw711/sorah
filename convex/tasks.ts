@@ -513,6 +513,19 @@ export const regenerateAnimations = action({
       return { success: true, videoUrls };
     } catch (error) {
       console.error("[regenerate-animations] error:", error instanceof Error ? error.message : "unknown error");
+      
+      const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+      if (project) {
+        await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+          id: projectId,
+          script: project.script,
+          audioUrl: project.audioUrl,
+          musicUrl: project.musicUrl,
+          videoUrls: project.videoUrls,
+          status: "completed",
+        });
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : "animations regeneration failed",
