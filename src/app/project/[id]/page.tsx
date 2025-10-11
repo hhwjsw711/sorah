@@ -121,14 +121,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                       <div className="text-2xl mb-2">🎤</div>
                       <p className="text-xs font-medium text-purple-900">audio.mp3</p>
-                      <p className="text-xs text-purple-600">voiceover</p>
+                      <p className="text-xs text-purple-600 mb-2">voiceover</p>
+                      <audio controls className="w-full h-8">
+                        <source src={project.audioUrl} type="audio/mp3" />
+                      </audio>
                     </div>
                   )}
                   {project.musicUrl && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="text-2xl mb-2">🎵</div>
                       <p className="text-xs font-medium text-blue-900">music.mp3</p>
-                      <p className="text-xs text-blue-600">background</p>
+                      <p className="text-xs text-blue-600 mb-2">background</p>
+                      <audio controls className="w-full h-8">
+                        <source src={project.musicUrl} type="audio/mp3" />
+                      </audio>
                     </div>
                   )}
                   {project.videoUrls?.map((url, i) => (
