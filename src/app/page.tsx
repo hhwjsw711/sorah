@@ -4,11 +4,13 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const projects = useQuery(api.tasks.getProjects);
   const simulateCompleted = useMutation(api.tasks.simulateCompleted);
   const deleteProject = useMutation(api.tasks.deleteProject);
+  const router = useRouter();
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <div className="max-w-6xl mx-auto px-6 py-16">
@@ -31,8 +33,7 @@ export default function Home() {
             <h2 className="text-2xl font-bold text-gray-800 mb-4">projects</h2>
             <div className="grid gap-4">
               {projects.map((project) => (
-                <Link key={project._id} href={`/project/${project._id}`} className="block">
-                <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                <div key={project._id} onClick={() => router.push(`/project/${project._id}`)} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                   <div className="flex items-start gap-4 mb-4">
                     {project.thumbnailUrl && (
                       <div className="relative w-32 h-32 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
@@ -77,6 +78,7 @@ export default function Home() {
                           href={project.audioUrl}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 transition-colors"
                         >
                           🎤 audio
@@ -87,6 +89,7 @@ export default function Home() {
                           href={project.musicUrl}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 transition-colors"
                         >
                           🎵 music
@@ -98,6 +101,7 @@ export default function Home() {
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="px-3 py-1 bg-pink-100 text-pink-700 rounded-lg text-sm hover:bg-pink-200 transition-colors"
                         >
                           🎬 video {i + 1}
@@ -134,7 +138,6 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-                </Link>
               ))}
             </div>
           </div>
