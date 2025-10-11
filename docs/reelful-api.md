@@ -1,244 +1,155 @@
-# Reelful API Usage Guide
+# Reelful - AI-Powered Social Media Content Generator
 
-## Overview
+Reelful is an API that uses AI to create professional social media content. It generates scripts, animated videos from images, and voiceovers for Instagram Reels, TikTok, and YouTube Shorts.
 
-The Reelful API uses the Dedalus AI agent to create social media video scripts, generate videos from images, and create voiceovers. The agent has access to tools that can:
+## Features
 
-1. Generate animated videos from images using fal AI (automatically trimmed to 3 seconds)
-2. Generate voiceover audio from text using ElevenLabs
-3. Create professional social media scripts
+- 🎬 **Video Generation**: Convert static images into 3-second animated videos using fal AI
+- 🎙️ **Voiceover Creation**: Generate professional audio narration using ElevenLabs
+- 🎵 **Background Music**: AI-generated music that matches voiceover duration with multiple styles
+- ✍️ **Script Writing**: AI-powered script generation optimized for short-form content
+- 🤖 **Intelligent Agent**: Uses Dedalus AI with automatic tool execution
+- 📤 **Media Upload**: Support for uploading and processing local media files
 
-## Setup
+## Quick Start
 
-### Environment Variables
+### Installation
 
-Create a .env file with the following keys:
+```bash
+# Clone the repository
+git clone <repo-url>
+cd reelful
 
+# Install dependencies
+pip install -r requirements.txt
+```
 
+### Configuration
+
+Create a `.env` file with your API keys:
+
+```bash
 DEDALUS_API_KEY=your_dedalus_key
 ELEVENLABS_API_KEY=your_elevenlabs_key
-ELEVENLABS_MUSIC_API_KEY=your_elevenlabs_music_key  # Optional, falls back to ELEVENLABS_API_KEY
+ELEVENLABS_MUSIC_API_KEY=your_elevenlabs_music_key  # Optional
 FAL_KEY=your_fal_key
+```
 
+### Running the Server
 
-### Install Dependencies
+```bash
+python run.py
+```
 
+The API will be available at `http://localhost:8000`
 
-pip install -r requirements.txt
+## Usage
 
+### Basic Example
 
-## API Endpoints
+```python
+import requests
 
-### 1. POST /chat - Main Endpoint
+# Generate content
+response = requests.post("http://localhost:8000/chat", json={
+    "message": "Create a reel about AI innovation",
+    "model": "openai/gpt-5",
+    "image_urls": ["https://example.com/image.jpg"]
+})
 
-Send a message with optional images to generate a script, videos, and audio.
+result = response.json()
+print(f"Script: {result['script']}")
+print(f"Audio: {result['audio_path']}")
+print(f"Music: {result['music_path']}")
+print(f"Videos: {result['video_paths']}")
+```
 
-Request Body:
+### With File Upload
 
-{
-  "message": "Create a social media reel about our new product launch",
-  "model": "openai/gpt-5",
-  "image_urls": [
-    "https://example.com/image1.jpg",
-    "https://example.com/image2.jpg"
-  ]
-}
-
-
-Response:
-
-{
-  "script": "Generated script text...",
-  "audio_path": "/media/audio_12345.mp3",
-  "music_path": "/media/music_67890.mp3",
-  "video_paths": [
-    "/media/video_abc123.mp4",
-    "/media/video_def456.mp4"
-  ],
-  "error": null
-}
-
-
-How it Works:
-1. The agent receives your message and image URLs
-2. It generates a 15-second script optimized for IG/TikTok/YouTube Shorts
-3. The agent automatically calls tools to:
-   - Generate 3-second animated videos from each image (using fal AI)
-   - Generate voiceover audio from the script (using ElevenLabs)
-   - Generate background music matching the voiceover duration (using ElevenLabs Music)
-4. Returns the script and paths to generated media files
-
-### 2. POST /upload-media - Upload Local Files
-
-Upload local images/videos to get URLs that can be used with the /chat endpoint.
-
-Request:
-
+```bash
+# Upload images
 curl -X POST "http://localhost:8000/upload-media" \
-  -F "files=@image1.jpg" \
-  -F "files=@image2.png"
+  -F "files=@photo1.jpg" \
+  -F "files=@photo2.jpg"
 
-
-Response:
-
-{
-  "urls": [
-    "/media/uuid1.jpg",
-    "/media/uuid2.png"
-  ],
-  "count": 2
-}
-
-
-### 3. GET /media/{filename} - Retrieve Media Files
-
-Access uploaded or generated media files.
-
-Example:
-
-GET http://localhost:8000/media/video_abc123.mp4
-
-
-## Example Workflow
-
-### Step 1: Upload Images (Optional)
-
-If you have local images, upload them first:
-
-
-curl -X POST "http://localhost:8000/upload-media" \
-  -F "files=@product_photo.jpg" \
-  -F "files=@team_photo.jpg"
-
-
-Response:
-
-{
-  "urls": [
-    "/media/abc123.jpg",
-    "/media/def456.jpg"
-  ],
-  "count": 2
-}
-
-
-### Step 2: Generate Content
-
-Use the /chat endpoint with your images:
-
-
+# Use uploaded images
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "Create an engaging reel about our innovative AI-powered product that helps businesses automate their workflows. Target tech-savvy entrepreneurs.",
-    "model": "openai/gpt-5",
+    "message": "Create an engaging reel",
     "image_urls": [
-      "http://localhost:8000/media/abc123.jpg",
-      "http://localhost:8000/media/def456.jpg"
+      "http://localhost:8000/media/uuid1.jpg"
     ]
   }'
+```
 
+## API Endpoints
 
-Response:
+- `POST /chat` - Generate content with AI agent
+- `POST /upload-media` - Upload local media files
+- `GET /media/{filename}` - Retrieve media files
+- `GET /` - Health check
 
-{
-  "script": "Ever wonder how top businesses save 10 hours a week? Meet FlowAI, the game-changing automation platform...",
-  "audio_path": "/media/audio_xyz789.mp3",
-  "video_paths": [
-    "/media/video_video1.mp4",
-    "/media/video_video2.mp4"
-  ],
-  "error": null
-}
+For detailed API documentation, see [API_USAGE.md](API_USAGE.md)
 
+## How It Works
 
-### Step 3: Download Generated Media
+1. **Input**: You provide a prompt and optional image URLs
+2. **Script Generation**: AI generates a professional 15-second script
+3. **Video Creation**: Images are animated into 3-second videos (auto-trimmed from 5s)
+4. **Voiceover**: AI generates audio narration from the script
+5. **Background Music**: AI generates music matching the voiceover duration
+6. **Output**: Returns script, video paths, audio path, and music path
 
-Access your generated files:
-- Audio: http://localhost:8000/media/audio_xyz789.mp3
-- Videos: 
-  - http://localhost:8000/media/video_video1.mp4
-  - http://localhost:8000/media/video_video2.mp4
+## Technologies
 
-## Agent Tools
+- **FastAPI**: Modern web framework for the API
+- **Dedalus**: AI agent orchestration with tool execution
+- **fal AI**: Image-to-video generation (Kling Video v2.5)
+- **ElevenLabs**: Text-to-speech for voiceovers and AI music generation
+- **MoviePy**: Video processing and trimming
+- **Pydub**: Audio duration detection
 
-The Dedalus agent has access to these tools:
+## Testing
 
-### 1. generate_video_from_image(image_url, prompt)
+Run the test suite:
 
-Generates a 3-second animated video from an image using fal AI.
+```bash
+python test_video_generation.py
+```
 
-- Input: Image URL and animation prompt
-- Output: Video file path (automatically trimmed to 3 seconds)
-- Note: Original fal API returns 5-second videos, which are automatically trimmed
+## Project Structure
 
-### 2. generate_audio(text, output_file)
+```
+reelful/
+├── main.py              # Main API application
+├── run.py               # Server startup script
+├── api.py               # API configuration
+├── requirements.txt     # Python dependencies
+├── vercel.json         # Vercel deployment config
+├── uploads/            # Uploaded media files
+├── outputs/            # Generated media files
+├── API_USAGE.md        # Detailed API documentation
+└── test_video_generation.py  # Test suite
+```
 
-Generates professional voiceover audio from text using ElevenLabs.
+## Deployment
 
-- Input: Text to convert to speech
-- Output: Audio file path (.mp3) and duration in milliseconds
-- Voice: Professional voice optimized for social media
+### Vercel
 
-### 3. generate_music(duration_ms, style)
+The project is configured for Vercel deployment:
 
-Generates background music using ElevenLabs Music API.
-
-- Input: 
-  - duration_ms: Duration in milliseconds (automatically matches voiceover length)
-  - style: Music style - "auto" (random), "funky", "electronic", "lofi", "cinematic", or "acoustic"
-- Output: Music file path (.mp3)
-- Styles:
-  - funky: Funky jam session, improv jazz, modern
-  - electronic: Upbeat electronic groove, synthwave vibes, energetic
-  - lofi: Chill lo-fi beat, mellow hip-hop, rainy afternoon
-  - cinematic: Cinematic score, orchestral build-up, inspiring
-  - acoustic: Acoustic indie pop, warm guitar strums, nostalgic
-
-## Running the API
-
-### Development
-
-
-python run.py
-
-
-### Production (Vercel)
-
-The API is configured for Vercel deployment. See vercel.json for configuration.
+```bash
+vercel deploy
+```
 
 ## Notes
 
 - Videos are automatically trimmed from 5 seconds to 3 seconds
-- The agent uses auto_execute_tools=True, so it will automatically call the necessary tools
-- All generated files are stored in the outputs/ directory
-- Uploaded files are stored in the uploads/ directory
-- The system prompt is optimized for creating engaging 15-second social media content
+- The agent uses `auto_execute_tools=True` for seamless tool execution
+- Generated files are stored in `outputs/` directory
+- Uploaded files are stored in `uploads/` directory
 
-## System Prompt
+## License
 
-The agent is configured with a specialized prompt for social media content creation:
-
-> "You are a social media manager creating a script for a short form video for IG, TikTok or YouTube shorts. Your task is to create a 15 second script given the given information. Add a bit of background to explain company names, if some details can be lacking for general audience, feel free to add it. Also add value why this reel is worth watch or why the idea conveyed in the reel is important. Add a hook in the beginning and call for action at the end related to the things mentioned at the video (to try the thing mentioned or smth like that). Do not add too much exciting phrases - try to keep professional. Take into account the photos and videos attached. The output should be just plain text w/o any additional words."
-
-## Troubleshooting
-
-### Missing API Keys
-
-If you get errors about missing API keys, ensure all required keys are in your .env file:
-- DEDALUS_API_KEY
-- ELEVENLABS_API_KEY
-- ELEVENLABS_MUSIC_API_KEY (optional, falls back to `ELEVENLABS_API_KEY`)
-- FAL_KEY
-
-### Video Generation Issues
-
-- Ensure the fal API key is valid
-- Image URLs must be publicly accessible
-- The fal API may take some time to generate videos (up to 30+ seconds)
-
-### Audio Generation Issues
-
-- Verify the ElevenLabs API key
-- Check that you have sufficient credits in your ElevenLabs account
-- The voice ID is hardcoded to y3QRUmmVlCstT6DNbXg9
+[Your License Here]
