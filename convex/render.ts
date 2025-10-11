@@ -50,6 +50,10 @@ export const renderVideo = action({
       
       await sandbox.commands.run("mkdir -p /home/user/public/media");
       console.log("[render] media directory created");
+      
+      console.log("[render] creating empty subtitles file...");
+      await sandbox.files.write("/home/user/public/media/subtitles.srt", "");
+      console.log("[render] subtitles file created");
 
       console.log("[render] uploading media files...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
