@@ -10,5 +10,5 @@ services:
     port: 3000
 
   convex:
-    command: bun convex dev --local --once
+    command: bun convex dev --local
     cwd: .
