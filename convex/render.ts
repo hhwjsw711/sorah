@@ -26,13 +26,6 @@ export const renderVideo = action({
       }
       console.log("[render] project loaded, has audio:", !!project.audioUrl, "music:", !!project.musicUrl, "videos:", project.videoUrls?.length || 0);
 
-      console.log("[render] creating e2b sandbox...");
-      await ctx.runMutation(api.tasks.updateRenderProgress, {
-        id: projectId,
-        step: "creating sandbox",
-        details: "initializing e2b environment with remotion template",
-      });
-      
       if (!process.env.E2B_API_KEY) {
         throw new Error("E2B_API_KEY not set in convex environment variables");
       }
@@ -41,20 +34,57 @@ export const renderVideo = action({
       if (!claudeToken) {
         throw new Error("CLAUDE_CODE_OAUTH_TOKEN not set in convex environment variables");
       }
-      
-      const sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
-        autoPause: true,
-        timeoutMs: 900000,
-        envs: {
-          CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
-        },
-      });
-      console.log("[render] sandbox created:", sandbox.sandboxId);
 
-      await ctx.runMutation(api.tasks.updateProjectSandbox, {
-        id: projectId,
-        sandboxId: sandbox.sandboxId,
-      });
+      let sandbox;
+      if (project.sandboxId) {
+        console.log("[render] connecting to existing sandbox:", project.sandboxId);
+        await ctx.runMutation(api.tasks.updateRenderProgress, {
+          id: projectId,
+          step: "connecting to sandbox",
+          details: "reusing existing e2b environment",
+        });
+        
+        try {
+          sandbox = await Sandbox.connect(project.sandboxId);
+          console.log("[render] connected to existing sandbox");
+        } catch (error) {
+          console.log("[render] failed to connect to existing sandbox, creating new one:", error);
+          sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
+            autoPause: true,
+            timeoutMs: 900000,
+            envs: {
+              CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
+            },
+          });
+          console.log("[render] new sandbox created:", sandbox.sandboxId);
+          
+          await ctx.runMutation(api.tasks.updateProjectSandbox, {
+            id: projectId,
+            sandboxId: sandbox.sandboxId,
+          });
+        }
+      } else {
+        console.log("[render] creating new e2b sandbox...");
+        await ctx.runMutation(api.tasks.updateRenderProgress, {
+          id: projectId,
+          step: "creating sandbox",
+          details: "initializing e2b environment with remotion template",
+        });
+        
+        sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
+          autoPause: true,
+          timeoutMs: 900000,
+          envs: {
+            CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
+          },
+        });
+        console.log("[render] sandbox created:", sandbox.sandboxId);
+
+        await ctx.runMutation(api.tasks.updateProjectSandbox, {
+          id: projectId,
+          sandboxId: sandbox.sandboxId,
+        });
+      }
 
       console.log("[render] creating media directories...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
