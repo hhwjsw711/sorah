@@ -31,7 +31,8 @@ export default function Home() {
             <h2 className="text-2xl font-bold text-gray-800 mb-4">projects</h2>
             <div className="grid gap-4">
               {projects.map((project) => (
-                <div key={project._id} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                <Link key={project._id} href={`/project/${project._id}`} className="block">
+                <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <p className="text-gray-800 mb-2">{project.prompt}</p>
@@ -121,19 +122,26 @@ export default function Home() {
 
                   <div className="mt-4 flex gap-2">
                     <button
-                      onClick={() => simulateCompleted({ id: project._id })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        simulateCompleted({ id: project._id });
+                      }}
                       className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
                     >
                       simulate completed
                     </button>
                     <button
-                      onClick={() => deleteProject({ id: project._id })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        deleteProject({ id: project._id });
+                      }}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
                     >
                       delete
                     </button>
                   </div>
                 </div>
+                </Link>
               ))}
             </div>
           </div>

@@ -4,11 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Upload() {
   const [prompt, setPrompt] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const router = useRouter();
   
   const generateUploadUrl = useMutation(api.tasks.generateUploadUrl);
   const createProject = useMutation(api.tasks.createProject);
@@ -36,22 +39,21 @@ export default function Upload() {
       }
 
       console.log("creating project with", fileIds.length, "files");
-      const projectId = await createProject({ prompt, files: fileIds });
-      console.log("created project:", projectId);
+      const newProjectId = await createProject({ prompt, files: fileIds });
+      console.log("created project:", newProjectId);
 
       const reelfulApiUrl = process.env.NEXT_PUBLIC_REELFUL_API_URL;
       if (reelfulApiUrl) {
         console.log("triggering reelful api...");
         processProjectWithReelful({
-          projectId,
+          projectId: newProjectId,
           reelfulApiUrl,
         }).catch((error) => {
           console.error("reelful api error:", error);
         });
       }
       
-      setPrompt("");
-      setFiles([]);
+      router.push(`/project/${newProjectId}`);
     } catch (error) {
       console.error("upload error:", error);
       alert(`upload failed: ${error}`);
@@ -109,6 +111,21 @@ export default function Upload() {
                   <p className="text-sm text-gray-500 mt-1">5-10 videos or photos</p>
                 </label>
               </div>
+
+              {files.length > 0 && (
+                <div className="mt-4 grid grid-cols-5 gap-2">
+                  {files.map((file, i) => (
+                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                      <Image
+                        src={URL.createObjectURL(file)}
+                        alt={file.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button

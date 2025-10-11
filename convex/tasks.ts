@@ -87,15 +87,18 @@ export const updateProjectWithReelfulData = mutation({
     status: v.union(v.literal("completed"), v.literal("failed")),
   },
   handler: async (ctx, { id, script, audioUrl, musicUrl, videoUrls, error, status }) => {
-    await ctx.db.patch(id, {
-      script,
-      audioUrl,
-      musicUrl,
-      videoUrls,
-      error,
+    const updates: any = {
       status,
       completedAt: Date.now(),
-    });
+    };
+    
+    if (script !== undefined) updates.script = script;
+    if (audioUrl !== undefined) updates.audioUrl = audioUrl;
+    if (musicUrl !== undefined) updates.musicUrl = musicUrl;
+    if (videoUrls !== undefined) updates.videoUrls = videoUrls;
+    if (error !== undefined) updates.error = error;
+    
+    await ctx.db.patch(id, updates);
     return id;
   },
 });
@@ -176,11 +179,11 @@ export const processProjectWithReelful = action({
 
       await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
         id: projectId,
-        script: data.script,
+        script: data.script || undefined,
         audioUrl,
         musicUrl,
         videoUrls,
-        error: data.error,
+        error: data.error ? data.error : undefined,
         status: data.error ? "failed" : "completed",
       });
 
