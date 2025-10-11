@@ -30,7 +30,7 @@ export const renderVideo = action({
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
         step: "creating sandbox",
-        details: "initializing e2b environment",
+        details: "initializing e2b environment with remotion template",
       });
       
       const apiKey = process.env.E2B_API_KEY;
@@ -38,38 +38,17 @@ export const renderVideo = action({
         throw new Error("E2B_API_KEY not set in convex environment variables");
       }
       
-      const sandbox = await Sandbox.create({ apiKey });
+      const sandbox = await Sandbox.create("8r14p0kvwebvpgno5hia", { apiKey });
       console.log("[render] sandbox created:", sandbox.sandboxId);
 
-      console.log("[render] cloning remotion template...");
-      await ctx.runMutation(api.tasks.updateRenderProgress, {
-        id: projectId,
-        step: "cloning template",
-        details: "downloading remotion template from github",
-      });
-      
-      const cloneResult = await sandbox.commands.run("git clone https://github.com/caffeinum/remotion-template /home/user/remotion-template");
-      console.log("[render] clone result:", cloneResult.stdout);
-      if (cloneResult.exitCode !== 0) {
-        throw new Error(`git clone failed: ${cloneResult.stderr}`);
-      }
-
-      console.log("[render] installing dependencies...");
-      await ctx.runMutation(api.tasks.updateRenderProgress, {
-        id: projectId,
-        step: "installing dependencies",
-        details: "running bun install",
-      });
-      
-      const installResult = await sandbox.commands.run("bun install", { cwd: "/home/user/remotion-template" });
-      console.log("[render] install result:", installResult.stdout);
-      if (installResult.exitCode !== 0) {
-        throw new Error(`install failed: ${installResult.stderr}`);
-      }
-      console.log("[render] dependencies installed");
-
       console.log("[render] creating media directory...");
-      await sandbox.commands.run("mkdir -p /home/user/remotion-template/public/media");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "preparing environment",
+        details: "setting up media directories",
+      });
+      
+      await sandbox.commands.run("mkdir -p /home/user/public/media");
       console.log("[render] media directory created");
 
       console.log("[render] uploading media files...");
@@ -84,7 +63,7 @@ export const renderVideo = action({
         const audioResponse = await fetch(project.audioUrl);
         const audioBuffer = await audioResponse.arrayBuffer();
         console.log("[render] audio fetched, size:", audioBuffer.byteLength);
-        await sandbox.files.write("/home/user/remotion-template/public/media/audio.mp3", audioBuffer);
+        await sandbox.files.write("/home/user/public/media/audio.mp3", audioBuffer);
       }
 
       if (project.musicUrl) {
@@ -92,7 +71,7 @@ export const renderVideo = action({
         const musicResponse = await fetch(project.musicUrl);
         const musicBuffer = await musicResponse.arrayBuffer();
         console.log("[render] music fetched, size:", musicBuffer.byteLength);
-        await sandbox.files.write("/home/user/remotion-template/public/media/music.mp3", musicBuffer);
+        await sandbox.files.write("/home/user/public/media/music.mp3", musicBuffer);
       }
 
       if (project.videoUrls) {
@@ -101,7 +80,7 @@ export const renderVideo = action({
           const videoResponse = await fetch(project.videoUrls[i]);
           const videoBuffer = await videoResponse.arrayBuffer();
           console.log(`[render] video ${i} fetched, size:`, videoBuffer.byteLength);
-          await sandbox.files.write(`/home/user/remotion-template/public/media/video${i}.mp4`, videoBuffer);
+          await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
         }
       }
       console.log("[render] files uploaded");
@@ -113,7 +92,7 @@ export const renderVideo = action({
         details: "composing final video with remotion",
       });
       
-      const renderResult = await sandbox.commands.run("bun remotion render", { cwd: "/home/user/remotion-template" });
+      const renderResult = await sandbox.commands.run("bun remotion render", { cwd: "/home/user" });
       console.log("[render] render stdout:", renderResult.stdout);
       console.log("[render] render stderr:", renderResult.stderr);
       
@@ -123,7 +102,7 @@ export const renderVideo = action({
       console.log("[render] remotion render completed");
 
       console.log("[render] reading output video...");
-      const outputVideo = await sandbox.files.read("/home/user/remotion-template/out/result.mp4");
+      const outputVideo = await sandbox.files.read("/home/user/out/result.mp4");
       
       if (!outputVideo) {
         throw new Error("output video not found");
