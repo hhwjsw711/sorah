@@ -85,6 +85,9 @@ export const animateImage = action({
       return { success: true, data: result.data, requestId: result.requestId };
     } catch (error) {
       console.error("[animate] error:", error);
+      if (error && typeof error === 'object' && 'body' in error) {
+        console.error("[animate] error details:", JSON.stringify((error as any).body));
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : "animation failed",
