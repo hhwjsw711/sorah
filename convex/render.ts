@@ -221,20 +221,32 @@ composition should be portrait!`;
       const lsResult = await sandbox.commands.run("ls -lah /home/user/out/ 2>/dev/null || echo 'out directory not found'");
       console.log("[render] out directory contents:", lsResult.stdout);
 
+      const findResult = await sandbox.commands.run("find /home/user/out -name '*.mp4' 2>/dev/null || echo 'no mp4 files found'");
+      console.log("[render] mp4 files in out/:", findResult.stdout);
+
       console.log("[render] reading output video...");
       let outputVideo;
+      const videoPath = "/home/user/out/Main.mp4";
+      
       try {
-        outputVideo = await sandbox.files.read("/home/user/out/Main.mp4");
-      } catch (error) {
-        console.log("[render] output video not found:", error);
-        throw new Error("output video not found - claude may still be rendering or encountered an error");
+        outputVideo = await sandbox.files.read(videoPath);
+      } catch {
+        console.log("[render] Main.mp4 not found");
+        const claudeOutput = claudeResult.stdout || "";
+        const hasMemoryError = claudeOutput.includes("memory") || claudeOutput.includes("killed");
+        
+        if (hasMemoryError) {
+          throw new Error("render failed due to insufficient memory - claude created the composition but couldn't render it. check sandbox files and try rendering manually with more resources.");
+        }
+        
+        throw new Error(`output video not found at ${videoPath} - check logs and out/ directory for details. claude may have created files but not completed the render.`);
       }
       
       if (!outputVideo) {
-        throw new Error("output video not found");
+        throw new Error("output video is empty");
       }
       const outputSize = typeof outputVideo === 'string' ? outputVideo.length : (outputVideo as ArrayBuffer).byteLength;
-      console.log("[render] output video size:", outputSize);
+      console.log("[render] output video size:", outputSize, "from path:", videoPath);
       
       if (outputSize === 0 || outputSize < 1000) {
         throw new Error(`output video is too small (${outputSize} bytes) - render likely failed`);
