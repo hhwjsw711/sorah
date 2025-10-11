@@ -314,7 +314,18 @@ export const processProjectWithAI = action({
       const audioUrl = voiceoverResult.audioUrl;
       console.log("[ai-process] voiceover uploaded:", audioUrl);
 
-      console.log("[ai-process] step 3: animating images");
+      console.log("[ai-process] step 3: generating background music");
+      const musicResult = await ctx.runAction(api.aiServices.generateMusic, {
+        prompt: "upbeat background music for social media video",
+        durationMs: 15000,
+      });
+
+      const musicUrl = musicResult.success ? musicResult.musicUrl : undefined;
+      if (musicUrl) {
+        console.log("[ai-process] music uploaded:", musicUrl);
+      }
+
+      console.log("[ai-process] step 4: animating images");
       const videoUrls: string[] = [];
       for (let i = 0; i < Math.min(imageUrls.length, 3); i++) {
         console.log(`[ai-process] animating image ${i + 1}/${imageUrls.length}`);
@@ -335,7 +346,7 @@ export const processProjectWithAI = action({
         id: projectId,
         script,
         audioUrl: audioUrl || undefined,
-        musicUrl: undefined,
+        musicUrl: musicUrl || undefined,
         videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
         status: "completed",
       });
@@ -501,6 +512,52 @@ export const regenerateAnimations = action({
       return {
         success: false,
         error: error instanceof Error ? error.message : "animations regeneration failed",
+      };
+    }
+  },
+});
+
+export const regenerateMusic = action({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { projectId }): Promise<{ success: boolean; musicUrl?: string | null; error?: string }> => {
+    console.log("[regenerate-music] regenerating music for project:", projectId);
+
+    try {
+      const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+      if (!project) {
+        throw new Error("project not found");
+      }
+
+      const musicResult = await ctx.runAction(api.aiServices.generateMusic, {
+        prompt: "upbeat background music for social media video",
+        durationMs: 15000,
+      });
+
+      if (!musicResult.success || !musicResult.musicUrl) {
+        throw new Error(`music generation failed: ${musicResult.error}`);
+      }
+
+      const musicUrl = musicResult.musicUrl;
+      console.log("[regenerate-music] music uploaded:", musicUrl);
+
+      await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+        id: projectId,
+        script: project.script,
+        audioUrl: project.audioUrl,
+        musicUrl: musicUrl || undefined,
+        videoUrls: project.videoUrls,
+        status: "completed",
+      });
+
+      console.log("[regenerate-music] music regenerated");
+      return { success: true, musicUrl };
+    } catch (error) {
+      console.error("[regenerate-music] error:", error instanceof Error ? error.message : "unknown error");
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "music regeneration failed",
       };
     }
   },

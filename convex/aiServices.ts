@@ -61,10 +61,17 @@ export const animateImage = action({
 
       fal.config({ credentials: apiKey });
 
+      console.log("[animate] fetching image to upload to FAL storage");
+      const imageResponse = await fetch(imageUrl);
+      const imageBlob = await imageResponse.blob();
+      
+      const falImageUrl = await fal.storage.upload(imageBlob);
+      console.log("[animate] image uploaded to FAL storage:", falImageUrl);
+
       const result = await fal.subscribe("fal-ai/kling-video/v2.5-turbo/pro/image-to-video", {
         input: {
           prompt,
-          image_url: imageUrl,
+          image_url: falImageUrl,
         },
         logs: true,
         onQueueUpdate: (update) => {
@@ -150,6 +157,68 @@ export const generateVoiceover = action({
       return {
         success: false,
         error: error instanceof Error ? error.message : "voiceover generation failed",
+      };
+    }
+  },
+});
+
+export const generateMusic = action({
+  args: {
+    prompt: v.string(),
+    durationMs: v.optional(v.number()),
+  },
+  handler: async (ctx, { prompt, durationMs = 15000 }): Promise<{ success: boolean; musicUrl?: string | null; error?: string }> => {
+    console.log("[music] generating background music");
+    
+    try {
+      const apiKey = process.env.ELEVENLABS_MUSIC_API_KEY;
+      if (!apiKey) {
+        throw new Error("ELEVENLABS_MUSIC_API_KEY not set");
+      }
+
+      const client = new ElevenLabsClient({
+        apiKey,
+      });
+
+      const audioStream = await client.music.compose({
+        prompt,
+        musicLengthMs: durationMs,
+      });
+
+      const chunks: Uint8Array[] = [];
+      const reader = audioStream.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const audioBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        audioBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      console.log("[music] music generated, size:", audioBuffer.length);
+      
+      const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "audio/mp3" },
+        body: audioBuffer,
+      });
+      const { storageId } = await uploadResponse.json();
+      const musicUrl = await ctx.storage.getUrl(storageId);
+      
+      console.log("[music] music uploaded to storage");
+      return { success: true, musicUrl };
+    } catch (error) {
+      console.error("[music] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "music generation failed",
       };
     }
   },

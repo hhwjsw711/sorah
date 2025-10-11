@@ -15,10 +15,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const renderVideo = useAction(api.render.renderVideo);
   const regenerateScript = useAction(api.tasks.regenerateScript);
   const regenerateVoiceover = useAction(api.tasks.regenerateVoiceover);
+  const regenerateMusic = useAction(api.tasks.regenerateMusic);
   const regenerateAnimations = useAction(api.tasks.regenerateAnimations);
   const [rendering, setRendering] = useState(false);
   const [regeneratingScript, setRegeneratingScript] = useState(false);
   const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
+  const [regeneratingMusic, setRegeneratingMusic] = useState(false);
   const [regeneratingAnimations, setRegeneratingAnimations] = useState(false);
 
   if (!project) {
@@ -230,6 +232,22 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">4. generate background music</p>
                     <p className="text-sm text-gray-600">creating matching background track</p>
                   </div>
+                  {project.musicUrl && (
+                    <button
+                      onClick={async () => {
+                        setRegeneratingMusic(true);
+                        try {
+                          await regenerateMusic({ projectId: id as Id<"projects"> });
+                        } finally {
+                          setRegeneratingMusic(false);
+                        }
+                      }}
+                      disabled={regeneratingMusic}
+                      className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                    >
+                      {regeneratingMusic ? "regenerating..." : "regenerate"}
+                    </button>
+                  )}
                 </div>
 
                 <div className={`flex items-center gap-3 p-4 rounded-lg ${
