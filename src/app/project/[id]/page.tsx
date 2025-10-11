@@ -18,6 +18,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const regenerateMusic = useAction(api.tasks.regenerateMusic);
   const regenerateAnimations = useAction(api.tasks.regenerateAnimations);
   const getSandboxInfo = useAction(api.render.getSandboxInfo);
+  const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const [rendering, setRendering] = useState(false);
   const [regeneratingScript, setRegeneratingScript] = useState(false);
   const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
@@ -25,6 +26,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [regeneratingAnimations, setRegeneratingAnimations] = useState(false);
   const [sandboxInfo, setSandboxInfo] = useState<{ outDirectory?: string; diskUsage?: string; error?: string } | null>(null);
   const [loadingSandbox, setLoadingSandbox] = useState(false);
+  const [command, setCommand] = useState("");
+  const [commandOutput, setCommandOutput] = useState<{ stdout: string; stderr: string; exitCode: number } | null>(null);
+  const [runningCommand, setRunningCommand] = useState(false);
 
   if (!project) {
     return (
@@ -400,6 +404,57 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   )}
                   {sandboxInfo?.error && (
                     <p className="text-red-600 text-xs">{sandboxInfo.error}</p>
+                  )}
+                </div>
+
+                <div className="mt-4 p-4 bg-black rounded-lg border border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-green-400 font-mono text-sm">$</span>
+                    <input
+                      type="text"
+                      value={command}
+                      onChange={(e) => setCommand(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter" && command.trim() && !runningCommand) {
+                          setRunningCommand(true);
+                          try {
+                            const result = await runSandboxCommand({ 
+                              sandboxId: project.sandboxId!, 
+                              command: command.trim() 
+                            });
+                            if (result.success && "exitCode" in result) {
+                              setCommandOutput({
+                                stdout: result.stdout || "",
+                                stderr: result.stderr || "",
+                                exitCode: result.exitCode || 0,
+                              });
+                            } else if ("error" in result) {
+                              setCommandOutput({
+                                stdout: "",
+                                stderr: result.error || "command failed",
+                                exitCode: 1,
+                              });
+                            }
+                          } finally {
+                            setRunningCommand(false);
+                          }
+                        }
+                      }}
+                      placeholder="ls -la"
+                      disabled={runningCommand}
+                      className="flex-1 bg-transparent text-gray-100 font-mono text-sm outline-none placeholder-gray-500"
+                    />
+                  </div>
+                  {commandOutput && (
+                    <div className="mt-2 font-mono text-xs">
+                      {commandOutput.stdout && (
+                        <pre className="text-gray-300 whitespace-pre-wrap">{commandOutput.stdout}</pre>
+                      )}
+                      {commandOutput.stderr && (
+                        <pre className="text-red-400 whitespace-pre-wrap">{commandOutput.stderr}</pre>
+                      )}
+                      <div className="text-gray-500 mt-1">exit code: {commandOutput.exitCode}</div>
+                    </div>
                   )}
                 </div>
               </div>

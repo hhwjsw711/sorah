@@ -278,3 +278,36 @@ export const getSandboxInfo = action({
     }
   },
 });
+
+export const runSandboxCommand = action({
+  args: {
+    sandboxId: v.string(),
+    command: v.string(),
+  },
+  handler: async (ctx, { sandboxId, command }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId);
+      
+      const result = await sandbox.commands.run(command, {
+        cwd: "/home/user",
+        timeoutMs: 30000,
+      });
+      
+      return {
+        success: true,
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to run command",
+      };
+    }
+  },
+});

@@ -144,6 +144,12 @@ export type PublicApiType = {
       { sandboxId: string },
       any
     >;
+    runSandboxCommand: FunctionReference<
+      "action",
+      "public",
+      { command: string; sandboxId: string },
+      any
+    >;
     renderVideo: FunctionReference<
       "action",
       "public",
