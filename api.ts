@@ -50,6 +50,7 @@ export type PublicApiType = {
         id: Id<"projects">;
         musicUrl?: string;
         script?: string;
+        srtContent?: string;
         status: "completed" | "failed";
         videoUrls?: Array<string>;
       },
@@ -59,6 +60,32 @@ export type PublicApiType = {
       "mutation",
       "public",
       { id: Id<"projects"> },
+      any
+    >;
+    updateProjectStatus: FunctionReference<
+      "mutation",
+      "public",
+      {
+        id: Id<"projects">;
+        status: "processing" | "completed" | "failed" | "rendering";
+      },
+      any
+    >;
+    updateProjectWithRenderResult: FunctionReference<
+      "mutation",
+      "public",
+      {
+        error?: string;
+        id: Id<"projects">;
+        renderedVideoUrl?: string;
+        status: "completed" | "failed";
+      },
+      any
+    >;
+    updateRenderProgress: FunctionReference<
+      "mutation",
+      "public",
+      { details?: string; id: Id<"projects">; step: string },
       any
     >;
     simulateCompleted: FunctionReference<
@@ -73,9 +100,76 @@ export type PublicApiType = {
       { projectId: Id<"projects">; reelfulApiUrl: string },
       any
     >;
+    processProjectWithAI: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+    regenerateScript: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+    regenerateVoiceover: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+    regenerateAnimations: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+    regenerateMusic: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
   };
   render: {
-    render: FunctionReference<"action", "public", { projectId: string }, any>;
+    renderVideo: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+  };
+  aiServices: {
+    animateImage: FunctionReference<
+      "action",
+      "public",
+      { imageUrl: string; prompt?: string },
+      any
+    >;
+    generateMusic: FunctionReference<
+      "action",
+      "public",
+      { durationMs?: number; prompt: string },
+      any
+    >;
+    generateScript: FunctionReference<
+      "action",
+      "public",
+      { imageUrls?: Array<string>; prompt: string },
+      any
+    >;
+    transcribeAudio: FunctionReference<
+      "action",
+      "public",
+      { audioUrl: string },
+      any
+    >;
+    generateVoiceover: FunctionReference<
+      "action",
+      "public",
+      { text: string; voiceId?: string },
+      any
+    >;
   };
 };
 export type InternalApiType = {};

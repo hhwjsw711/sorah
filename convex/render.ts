@@ -169,32 +169,19 @@ composition should be portrait!`;
       }
       console.log("[render] files uploaded");
 
-      console.log("[render] running remotion render...");
+      console.log("[render] claude has completed rendering, checking output...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
-        step: "rendering video",
-        details: "composing final video with remotion",
+        step: "finalizing video",
+        details: "retrieving rendered video from sandbox",
       });
-      
-      const renderResult = await sandbox.commands.run("bun remotion render", { 
-        cwd: "/home/user",
-        timeoutMs: 600000,
-      });
-      console.log("[render] render exit code:", renderResult.exitCode);
-      console.log("[render] render stdout (last 500 chars):", renderResult.stdout.slice(-500));
-      
-      if (renderResult.exitCode !== 0) {
-        console.log("[render] render stderr:", renderResult.stderr);
-        throw new Error(`render failed with exit code ${renderResult.exitCode}: ${renderResult.stderr}`);
-      }
-      console.log("[render] remotion render completed");
 
       console.log("[render] checking output directory...");
       const lsResult = await sandbox.commands.run("ls -lah /home/user/out/");
       console.log("[render] out directory contents:", lsResult.stdout);
 
       console.log("[render] reading output video...");
-      const outputVideo = await sandbox.files.read("/home/user/out/Main.mp4");
+      const outputVideo = await sandbox.files.read("/home/user/out/reelful.mp4");
       
       if (!outputVideo) {
         throw new Error("output video not found");
@@ -230,10 +217,7 @@ composition should be portrait!`;
         status: "completed",
       });
 
-      console.log("[render] closing sandbox...");
-      await sandbox.kill();
-
-      console.log("[render] render complete!");
+      console.log("[render] render complete! keeping sandbox alive");
       return { success: true, renderedVideoUrl };
     } catch (error) {
       console.error("[render] error:", error);
