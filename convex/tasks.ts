@@ -94,22 +94,36 @@ export const updateProjectWithReelfulData = mutation({
     musicUrl: v.optional(v.string()),
     videoUrls: v.optional(v.array(v.string())),
     error: v.optional(v.string()),
-    status: v.union(v.literal("completed"), v.literal("failed")),
+    status: v.union(v.literal("completed"), v.literal("failed"), v.literal("processing")),
   },
   handler: async (
     ctx,
     { id, script, audioUrl, srtContent, musicUrl, videoUrls, error, status }
   ) => {
-    await ctx.db.patch(id, {
+    const updateData: {
+      status: "completed" | "failed" | "processing";
+      completedAt?: number;
+      script?: string;
+      audioUrl?: string;
+      srtContent?: string;
+      musicUrl?: string;
+      videoUrls?: string[];
+      error?: string;
+    } = {
       status,
-      completedAt: Date.now(),
       script,
       audioUrl,
       srtContent,
       musicUrl,
       videoUrls,
       error,
-    });
+    };
+
+    if (status === "completed" || status === "failed") {
+      updateData.completedAt = Date.now();
+    }
+
+    await ctx.db.patch(id, updateData);
 
     return id;
   },
@@ -363,7 +377,17 @@ export const processProjectWithAI = action({
           const videoUrl = (animateResult.data).video?.url;
           if (videoUrl) {
             videoUrls.push(videoUrl);
-            console.log(`[ai-process] animated image ${i + 1}`);
+            console.log(`[ai-process] animated image ${i + 1}, saving progress...`);
+            
+            await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+              id: projectId,
+              script,
+              audioUrl: audioUrl || undefined,
+              srtContent: srtContent || undefined,
+              musicUrl: musicUrl || undefined,
+              videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
+              status: "processing",
+            });
           }
         }
       }

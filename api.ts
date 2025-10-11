@@ -51,7 +51,7 @@ export type PublicApiType = {
         musicUrl?: string;
         script?: string;
         srtContent?: string;
-        status: "completed" | "failed";
+        status: "completed" | "failed" | "processing";
         videoUrls?: Array<string>;
       },
       any
