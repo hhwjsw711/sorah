@@ -92,7 +92,12 @@ export const renderVideo = action({
         details: "composing final video with remotion",
       });
       
-      const renderResult = await sandbox.commands.run("bun remotion render", { cwd: "/home/user" });
+      const renderResult = await sandbox.commands.run("bun remotion render", { 
+        cwd: "/home/user",
+        onStdout: (data) => console.log("[render stdout]", data),
+        onStderr: (data) => console.log("[render stderr]", data),
+      });
+      console.log("[render] render exit code:", renderResult.exitCode);
       console.log("[render] render stdout:", renderResult.stdout);
       console.log("[render] render stderr:", renderResult.stderr);
       
