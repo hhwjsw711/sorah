@@ -94,6 +94,7 @@ export const renderVideo = action({
       
       const renderResult = await sandbox.commands.run("bun remotion render", { 
         cwd: "/home/user",
+        timeoutMs: 600000,
         onStdout: (data) => console.log("[render stdout]", data),
         onStderr: (data) => console.log("[render stderr]", data),
       });
