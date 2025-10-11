@@ -132,7 +132,7 @@ export const generateVoiceover = action({
       }
 
       console.log("[voiceover] voiceover generated, size:", audioBuffer.length);
-      return { success: true, audio: audioBuffer };
+      return { success: true, audio: audioBuffer, audioSize: audioBuffer.length };
     } catch (error) {
       console.error("[voiceover] error:", error);
       return {

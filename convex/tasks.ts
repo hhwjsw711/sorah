@@ -311,6 +311,7 @@ export const processProjectWithAI = action({
         throw new Error(`voiceover generation failed: ${voiceoverResult.error}`);
       }
 
+      console.log("[ai-process] voiceover generated, uploading...");
       const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const voiceoverUpload = await fetch(uploadUrl, {
         method: "POST",
@@ -350,7 +351,7 @@ export const processProjectWithAI = action({
       console.log("[ai-process] ai processing complete");
       return { success: true };
     } catch (error) {
-      console.error("[ai-process] error:", error);
+      console.error("[ai-process] error:", error instanceof Error ? error.message : "unknown error");
       await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
         id: projectId,
         error: error instanceof Error ? error.message : "ai processing failed",
@@ -400,7 +401,7 @@ export const regenerateScript = action({
       console.log("[regenerate-script] script regenerated");
       return { success: true, script: scriptResult.script };
     } catch (error) {
-      console.error("[regenerate-script] error:", error);
+      console.error("[regenerate-script] error:", error instanceof Error ? error.message : "unknown error");
       return {
         success: false,
         error: error instanceof Error ? error.message : "script regeneration failed",
@@ -434,6 +435,7 @@ export const regenerateVoiceover = action({
         throw new Error(`voiceover generation failed: ${voiceoverResult.error}`);
       }
 
+      console.log("[regenerate-voiceover] voiceover generated, uploading...");
       const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const voiceoverUpload = await fetch(uploadUrl, {
         method: "POST",
@@ -442,6 +444,7 @@ export const regenerateVoiceover = action({
       });
       const { storageId: audioStorageId } = await voiceoverUpload.json();
       const audioUrl = await ctx.storage.getUrl(audioStorageId);
+      console.log("[regenerate-voiceover] voiceover uploaded");
 
       await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
         id: projectId,
@@ -455,7 +458,7 @@ export const regenerateVoiceover = action({
       console.log("[regenerate-voiceover] voiceover regenerated");
       return { success: true, audioUrl };
     } catch (error) {
-      console.error("[regenerate-voiceover] error:", error);
+      console.error("[regenerate-voiceover] error:", error instanceof Error ? error.message : "unknown error");
       return {
         success: false,
         error: error instanceof Error ? error.message : "voiceover regeneration failed",
@@ -510,7 +513,7 @@ export const regenerateAnimations = action({
       console.log("[regenerate-animations] animations regenerated");
       return { success: true, videoUrls };
     } catch (error) {
-      console.error("[regenerate-animations] error:", error);
+      console.error("[regenerate-animations] error:", error instanceof Error ? error.message : "unknown error");
       return {
         success: false,
         error: error instanceof Error ? error.message : "animations regeneration failed",
