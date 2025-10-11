@@ -48,25 +48,45 @@ export const renderVideo = action({
       });
       console.log("[render] sandbox created:", sandbox.sandboxId);
 
-      console.log("[render] running claude code suggestions...");
+      console.log("[render] running claude code to edit video...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
-        step: "claude analysis",
-        details: "running claude code to improve remotion template",
+        step: "claude video editing",
+        details: "claude is analyzing footage and creating composition",
       });
       
+      const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
+
+read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
+
+then decide on how to edit them together by emotion: ${project.prompt || 'create an engaging social media video'}
+
+bun remotion render when done
+
+upload out/reelful.mp4 
+curl -X POST https://reels-srt.vercel.app/api/fireworks -F "file=@out/reelful.mp4"
+
+and save srt into the public/reelful.srt
+
+create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
+
+we use bun btw
+
+composition should be portrait!`;
+
       const claudeResult = await sandbox.commands.run(
-        `export CLAUDE_CODE_OAUTH_TOKEN="${claudeToken}" && claude --print "${project.prompt || 'optimize the remotion video template'}"`,
+        `export CLAUDE_CODE_OAUTH_TOKEN="${claudeToken}" && claude --print "${videoEditorPrompt.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
         { 
           cwd: "/home/user",
-          timeoutMs: 120000,
+          timeoutMs: 600000,
         }
       );
       console.log("[render] claude exit code:", claudeResult.exitCode);
-      console.log("[render] claude output (last 500 chars):", claudeResult.stdout.slice(-500));
+      console.log("[render] claude output (last 1000 chars):", claudeResult.stdout.slice(-1000));
       
       if (claudeResult.exitCode !== 0) {
-        console.log("[render] claude failed, but continuing with render:", claudeResult.stderr);
+        console.log("[render] claude failed:", claudeResult.stderr);
+        throw new Error(`claude video editing failed: ${claudeResult.stderr}`);
       }
 
       console.log("[render] creating media directories...");
