@@ -381,4 +381,34 @@ export const readSandboxFile = action({
   },
 });
 
+export const getSandboxFileDownloadUrl = action({
+  args: {
+    sandboxId: v.string(),
+    filePath: v.string(),
+  },
+  handler: async (ctx, { sandboxId, filePath }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId);
+      
+      const downloadUrl = await sandbox.downloadUrl(filePath, {
+        useSignatureExpiration: 300_000,
+      });
+      
+      return {
+        success: true,
+        downloadUrl,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to get download url",
+      };
+    }
+  },
+});
+
 

@@ -21,6 +21,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
   const readSandboxFile = useAction(api.render.readSandboxFile);
+  const getSandboxFileDownloadUrl = useAction(api.render.getSandboxFileDownloadUrl);
   const [rendering, setRendering] = useState(false);
   const [regeneratingScript, setRegeneratingScript] = useState(false);
   const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
@@ -524,31 +525,41 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                           </div>
                         </button>
                         {!file.isDir && (
-                          <button
-                            onClick={async () => {
-                              const result = await readSandboxFile({ 
-                                sandboxId: project.sandboxId!, 
-                                filePath: file.path 
-                              });
-                              if (result.success && "content" in result) {
-                                const binaryString = atob(result.content || "");
-                                const bytes = new Uint8Array(binaryString.length);
-                                for (let i = 0; i < binaryString.length; i++) {
-                                  bytes[i] = binaryString.charCodeAt(i);
+                          <>
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "downloadUrl" in result) {
+                                  window.open(result.downloadUrl, '_blank');
                                 }
-                                const blob = new Blob([bytes]);
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = file.name;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                              }
-                            }}
-                            className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs"
-                          >
-                            ⬇
-                          </button>
+                              }}
+                              className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs"
+                              title="preview in browser"
+                            >
+                              👁
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "downloadUrl" in result) {
+                                  const a = document.createElement('a');
+                                  a.href = result.downloadUrl || "";
+                                  a.download = file.name;
+                                  a.click();
+                                }
+                              }}
+                              className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs"
+                              title="download file"
+                            >
+                              ⬇
+                            </button>
+                          </>
                         )}
                       </div>
                     ))}
