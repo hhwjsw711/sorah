@@ -174,6 +174,7 @@ export const generateVoiceover = action({
           similarityBoost: 1.0,
           style: 0.0,
           useSpeakerBoost: true,
+          speed: 1.25,
         },
       });
 
