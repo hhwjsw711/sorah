@@ -66,7 +66,7 @@ export const renderVideo = action({
       });
       
       if (project.audioUrl && project.audioUrl.includes("example.com")) {
-        throw new Error("Cannot render with simulated/example.com URLs. Please run AI processing first to generate real media files.");
+        throw new Error("Cannot render: audioUrl (voiceover) is a simulated example.com URL. Please run AI processing first to generate real media files.");
       }
       
       if (project.audioUrl) {
@@ -76,26 +76,44 @@ export const renderVideo = action({
         console.log("[render] audio fetched, size:", audioBuffer.byteLength);
         
         if (audioBuffer.byteLength < 1000) {
-          throw new Error(`Audio file is too small (${audioBuffer.byteLength} bytes). This likely means the URL is invalid or returns an error page.`);
+          throw new Error(`audioUrl (voiceover) file is too small (${audioBuffer.byteLength} bytes). This likely means the URL is invalid or returns an error page.`);
         }
         
         await sandbox.files.write("/home/user/public/media/audio.mp3", audioBuffer);
       }
 
       if (project.musicUrl) {
+        if (project.musicUrl.includes("example.com")) {
+          throw new Error("Cannot render: musicUrl (background music) is a simulated example.com URL. Please run AI processing first to generate real media files.");
+        }
+        
         console.log("[render] fetching music from:", project.musicUrl);
         const musicResponse = await fetch(project.musicUrl);
         const musicBuffer = await musicResponse.arrayBuffer();
         console.log("[render] music fetched, size:", musicBuffer.byteLength);
+        
+        if (musicBuffer.byteLength < 1000) {
+          throw new Error(`musicUrl (background music) file is too small (${musicBuffer.byteLength} bytes). This likely means the URL is invalid or returns an error page.`);
+        }
+        
         await sandbox.files.write("/home/user/public/media/music.mp3", musicBuffer);
       }
 
       if (project.videoUrls && project.videoUrls.length > 0) {
         for (let i = 0; i < project.videoUrls.length; i++) {
+          if (project.videoUrls[i].includes("example.com")) {
+            throw new Error(`Cannot render: videoUrls[${i}] (animated video ${i + 1}) is a simulated example.com URL. Please run AI processing first to generate real media files.`);
+          }
+          
           console.log(`[render] fetching video ${i} from:`, project.videoUrls[i]);
           const videoResponse = await fetch(project.videoUrls[i]);
           const videoBuffer = await videoResponse.arrayBuffer();
           console.log(`[render] video ${i} fetched, size:`, videoBuffer.byteLength);
+          
+          if (videoBuffer.byteLength < 1000) {
+            throw new Error(`videoUrls[${i}] (animated video ${i + 1}) file is too small (${videoBuffer.byteLength} bytes). This likely means the URL is invalid or returns an error page.`);
+          }
+          
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
           
           if (i === 0) {
