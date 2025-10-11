@@ -228,9 +228,9 @@ export const generateMusic = action({
     console.log("[music] generating background music");
     
     try {
-      const apiKey = process.env.ELEVENLABS_MUSIC_API_KEY;
+      const apiKey = process.env.ELEVENLABS_API_KEY;
       if (!apiKey) {
-        throw new Error("ELEVENLABS_MUSIC_API_KEY not set");
+        throw new Error("ELEVENLABS_API_KEY not set");
       }
 
       const client = new ElevenLabsClient({
