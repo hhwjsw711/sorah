@@ -11,6 +11,8 @@ interface DisplayCardProps {
   date?: string;
   iconClassName?: string;
   titleClassName?: string;
+  mediaUrl?: string;
+  mediaType?: "image" | "video";
 }
 
 function DisplayCard({
@@ -21,22 +23,45 @@ function DisplayCard({
   date = "Just now",
   iconClassName = "text-blue-500",
   titleClassName = "text-blue-500",
+  mediaUrl,
+  mediaType = "image",
 }: DisplayCardProps) {
   return (
     <div
       className={cn(
-        "relative flex h-36 w-[22rem] -skew-y-[8deg] select-none flex-col justify-between rounded-xl border-2 bg-muted/70 backdrop-blur-sm px-4 py-3 transition-all duration-700 after:absolute after:-right-1 after:top-[-5%] after:h-[110%] after:w-[20rem] after:bg-gradient-to-l after:from-background after:to-transparent after:content-[''] hover:border-white/20 hover:bg-muted [&>*]:flex [&>*]:items-center [&>*]:gap-2",
+        "relative flex h-36 w-[22rem] -skew-y-[8deg] select-none flex-col justify-between rounded-xl border-2 backdrop-blur-sm px-4 py-3 transition-all duration-700 after:absolute after:-right-1 after:top-[-5%] after:h-[110%] after:w-[20rem] after:bg-gradient-to-l after:from-background after:to-transparent after:content-[''] hover:border-white/20 [&>*]:flex [&>*]:items-center [&>*]:gap-2 overflow-hidden",
+        mediaUrl ? "bg-black/20" : "bg-muted/70 hover:bg-muted",
         className
       )}
     >
-      <div>
+      {mediaUrl && (
+        <div className="absolute inset-0 z-0">
+          {mediaType === "video" ? (
+            <video
+              src={mediaUrl}
+              className="w-full h-full object-cover opacity-60"
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          ) : (
+            <img
+              src={mediaUrl}
+              alt={title}
+              className="w-full h-full object-cover opacity-60"
+            />
+          )}
+        </div>
+      )}
+      <div className="relative z-10">
         <span className="relative inline-block rounded-full bg-blue-800 p-1">
           {icon}
         </span>
         <p className={cn("text-lg font-medium", titleClassName)}>{title}</p>
       </div>
-      <p className="whitespace-nowrap text-lg">{description}</p>
-      <p className="text-muted-foreground">{date}</p>
+      <p className="relative z-10 whitespace-nowrap text-lg text-white">{description}</p>
+      <p className="relative z-10 text-white/70">{date}</p>
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
 import Image from "next/image";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import DisplayCards from "@/components/ui/display-cards";
+import { FileImage, Video } from "lucide-react";
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -84,21 +86,23 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
             {project.fileUrls && project.fileUrls.length > 0 && (
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-3">uploaded files ({project.fileUrls.length})</p>
-                <div className="grid grid-cols-4 gap-3">
-                  {project.fileUrls.map((url, i) => (
-                    url && (
-                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
-                        <Image
-                          src={url}
-                          alt={`file ${i + 1}`}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    )
-                  ))}
-                </div>
+                <p className="text-sm font-medium text-gray-700 mb-6">uploaded files ({project.fileUrls.length})</p>
+                <DisplayCards
+                  cards={project.fileUrls.slice(0, 3).map((url, i) => ({
+                    icon: <FileImage className="size-4 text-purple-300" />,
+                    title: `image ${i + 1}`,
+                    description: "ready for processing",
+                    date: new Date(project.createdAt).toLocaleDateString(),
+                    titleClassName: "text-purple-500",
+                    mediaUrl: url,
+                    mediaType: "image" as const,
+                    className: i === 0 
+                      ? "[grid-area:stack] hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0"
+                      : i === 1
+                      ? "[grid-area:stack] translate-x-16 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0"
+                      : "[grid-area:stack] translate-x-32 translate-y-20 hover:translate-y-10",
+                  }))}
+                />
               </div>
             )}
 
@@ -177,53 +181,26 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
             {(project.audioUrl || project.musicUrl || project.videoUrls) && (
               <div className="border-t pt-6">
-                <p className="text-sm font-medium text-gray-700 mb-1">download media</p>
-                <p className="text-xs text-gray-500 mb-3">all generated files ready to download</p>
-                <div className="space-y-2">
-                  {project.audioUrl && (
-                    <a 
-                      href={project.audioUrl}
-                      download
-                      className="flex items-center gap-3 px-4 py-3 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors"
-                    >
-                      <span className="text-xl">🎤</span>
-                      <div className="flex-1 text-left">
-                        <div className="font-semibold">voiceover audio</div>
-                        <div className="text-xs text-purple-600">professional narration from script</div>
-                      </div>
-                      <span className="text-xs">⬇</span>
-                    </a>
-                  )}
-                  {project.musicUrl && (
-                    <a 
-                      href={project.musicUrl}
-                      download
-                      className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
-                    >
-                      <span className="text-xl">🎵</span>
-                      <div className="flex-1 text-left">
-                        <div className="font-semibold">background music</div>
-                        <div className="text-xs text-blue-600">ai-generated track matching voiceover length</div>
-                      </div>
-                      <span className="text-xs">⬇</span>
-                    </a>
-                  )}
-                  {project.videoUrls?.map((url, i) => (
-                    <a 
-                      key={i}
-                      href={url}
-                      download
-                      className="flex items-center gap-3 px-4 py-3 bg-pink-50 border border-pink-200 text-pink-700 rounded-lg text-sm font-medium hover:bg-pink-100 transition-colors"
-                    >
-                      <span className="text-xl">🎬</span>
-                      <div className="flex-1 text-left">
-                        <div className="font-semibold">animated video {i + 1}</div>
-                        <div className="text-xs text-pink-600">3-second animation from uploaded image</div>
-                      </div>
-                      <span className="text-xs">⬇</span>
-                    </a>
-                  ))}
-                </div>
+                <p className="text-sm font-medium text-gray-700 mb-1">generated media</p>
+                <p className="text-xs text-gray-500 mb-6">all ai-generated files ready to download</p>
+                <DisplayCards
+                  cards={[
+                    ...(project.videoUrls?.slice(0, 3).map((url, i) => ({
+                      icon: <Video className="size-4 text-pink-300" />,
+                      title: `video ${i + 1}`,
+                      description: "3-second animation",
+                      date: "ai-generated",
+                      titleClassName: "text-pink-500",
+                      mediaUrl: url,
+                      mediaType: "video" as const,
+                      className: i === 0 
+                        ? "[grid-area:stack] hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0"
+                        : i === 1
+                        ? "[grid-area:stack] translate-x-16 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0"
+                        : "[grid-area:stack] translate-x-32 translate-y-20 hover:translate-y-10",
+                    })) || []),
+                  ]}
+                />
               </div>
             )}
 
