@@ -152,7 +152,7 @@ export const generateVoiceover = action({
     text: v.string(),
     voiceId: v.optional(v.string()),
   },
-  handler: async (ctx, { text, voiceId = "y3QRUmmVlCstT6DNbXg9" }): Promise<{ success: boolean; audioUrl?: string | null; durationMs?: number; srtContent?: string; error?: string }> => {
+  handler: async (ctx, { text, voiceId = "J5Tvc0PBEsF1Qd2KBTey" }): Promise<{ success: boolean; audioUrl?: string | null; durationMs?: number; srtContent?: string; error?: string }> => {
     console.log("[voiceover] generating voiceover with timestamps");
     
     try {
