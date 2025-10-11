@@ -9,6 +9,7 @@ export default defineSchema({
   projects: defineTable({
     prompt: v.string(),
     files: v.array(v.id("_storage")),
+    thumbnail: v.optional(v.id("_storage")),
     createdAt: v.number(),
     status: v.optional(
       v.union(

@@ -33,7 +33,17 @@ export default function Home() {
               {projects.map((project) => (
                 <Link key={project._id} href={`/project/${project._id}`} className="block">
                 <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-4 mb-4">
+                    {project.thumbnailUrl && (
+                      <div className="relative w-32 h-32 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
+                        <Image
+                          src={project.thumbnailUrl}
+                          alt="project thumbnail"
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
                     <div className="flex-1">
                       <p className="text-gray-800 mb-2">{project.prompt}</p>
                       <div className="flex items-center gap-3 text-sm text-gray-500">
@@ -41,34 +51,17 @@ export default function Home() {
                         <span>•</span>
                         <span>{new Date(project.createdAt).toLocaleDateString()}</span>
                       </div>
-                    </div>
-                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      project.status === "completed" 
-                        ? "bg-green-100 text-green-700"
-                        : project.status === "failed"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {project.status || "processing"}
+                      <div className={`mt-2 inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                        project.status === "completed" 
+                          ? "bg-green-100 text-green-700"
+                          : project.status === "failed"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}>
+                        {project.status || "processing"}
+                      </div>
                     </div>
                   </div>
-
-                  {project.fileUrls && project.fileUrls.length > 0 && (
-                    <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
-                      {project.fileUrls.map((url, i) => (
-                        url && (
-                          <div key={i} className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-                            <Image
-                              src={url}
-                              alt={`file ${i + 1}`}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        )
-                      ))}
-                    </div>
-                  )}
 
                   {project.script && (
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">

@@ -20,11 +20,13 @@ export const createProject = mutation({
   args: {
     prompt: v.string(),
     files: v.array(v.id("_storage")),
+    thumbnail: v.optional(v.id("_storage")),
   },
-  handler: async (ctx, { prompt, files }) => {
+  handler: async (ctx, { prompt, files, thumbnail }) => {
     return await ctx.db.insert("projects", {
       prompt,
       files,
+      thumbnail: thumbnail || files[0],
       createdAt: Date.now(),
       status: "processing",
     });
@@ -41,6 +43,7 @@ export const getProjects = query({
         fileUrls: await Promise.all(
           project.files.map((fileId) => ctx.storage.getUrl(fileId))
         ),
+        thumbnailUrl: project.thumbnail ? await ctx.storage.getUrl(project.thumbnail) : null,
       }))
     );
   },
@@ -59,6 +62,7 @@ export const getProject = query({
       fileUrls: await Promise.all(
         project.files.map((fileId) => ctx.storage.getUrl(fileId))
       ),
+      thumbnailUrl: project.thumbnail ? await ctx.storage.getUrl(project.thumbnail) : null,
     };
   },
 });
@@ -87,7 +91,7 @@ export const updateProjectWithReelfulData = mutation({
     status: v.union(v.literal("completed"), v.literal("failed")),
   },
   handler: async (ctx, { id, script, audioUrl, musicUrl, videoUrls, error, status }) => {
-    const updates: any = {
+    const updates = {
       status,
       completedAt: Date.now(),
     };

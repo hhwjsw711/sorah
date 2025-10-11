@@ -153,37 +153,50 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
             {(project.audioUrl || project.musicUrl || project.videoUrls) && (
               <div className="border-t pt-6">
-                <p className="text-sm font-medium text-gray-700 mb-3">generated media</p>
-                <div className="grid grid-cols-2 gap-3">
+                <p className="text-sm font-medium text-gray-700 mb-1">download media</p>
+                <p className="text-xs text-gray-500 mb-3">all generated files ready to download</p>
+                <div className="space-y-2">
                   {project.audioUrl && (
                     <a 
                       href={project.audioUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors text-center"
+                      download
+                      className="flex items-center gap-3 px-4 py-3 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors"
                     >
-                      🎤 download voiceover
+                      <span className="text-xl">🎤</span>
+                      <div className="flex-1 text-left">
+                        <div className="font-semibold">voiceover audio</div>
+                        <div className="text-xs text-purple-600">professional narration from script</div>
+                      </div>
+                      <span className="text-xs">⬇</span>
                     </a>
                   )}
                   {project.musicUrl && (
                     <a 
                       href={project.musicUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-3 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors text-center"
+                      download
+                      className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
                     >
-                      🎵 download music
+                      <span className="text-xl">🎵</span>
+                      <div className="flex-1 text-left">
+                        <div className="font-semibold">background music</div>
+                        <div className="text-xs text-blue-600">ai-generated track matching voiceover length</div>
+                      </div>
+                      <span className="text-xs">⬇</span>
                     </a>
                   )}
                   {project.videoUrls?.map((url, i) => (
                     <a 
                       key={i}
                       href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-3 bg-pink-100 text-pink-700 rounded-lg text-sm font-medium hover:bg-pink-200 transition-colors text-center"
+                      download
+                      className="flex items-center gap-3 px-4 py-3 bg-pink-50 border border-pink-200 text-pink-700 rounded-lg text-sm font-medium hover:bg-pink-100 transition-colors"
                     >
-                      🎬 download video {i + 1}
+                      <span className="text-xl">🎬</span>
+                      <div className="flex-1 text-left">
+                        <div className="font-semibold">animated video {i + 1}</div>
+                        <div className="text-xs text-pink-600">3-second animation from uploaded image</div>
+                      </div>
+                      <span className="text-xs">⬇</span>
                     </a>
                   ))}
                 </div>

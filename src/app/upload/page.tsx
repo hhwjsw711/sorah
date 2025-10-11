@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 export default function Upload() {
   const [prompt, setPrompt] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [thumbnailIndex, setThumbnailIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const router = useRouter();
   
@@ -39,7 +40,19 @@ export default function Upload() {
       }
 
       console.log("creating project with", fileIds.length, "files");
-      const newProjectId = await createProject({ prompt, files: fileIds });
+      
+      const imageFiles = files.map((f, i) => ({ file: f, index: i })).filter(f => f.file.type.startsWith('image/'));
+      const thumbnailFileIndex = thumbnailIndex !== null 
+        ? thumbnailIndex 
+        : imageFiles.length > 0 
+          ? imageFiles[0].index 
+          : 0;
+      
+      const newProjectId = await createProject({ 
+        prompt, 
+        files: fileIds,
+        thumbnail: fileIds[thumbnailFileIndex],
+      });
       console.log("created project:", newProjectId);
 
       const reelfulApiUrl = process.env.NEXT_PUBLIC_REELFUL_API_URL;
@@ -73,7 +86,8 @@ export default function Upload() {
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
             create project
           </h1>
-          <p className="text-gray-600 mb-8">upload 5-10 videos or photos and describe what you want</p>
+          <p className="text-gray-600 mb-2">upload images and videos, describe your idea</p>
+          <p className="text-sm text-gray-500 mb-8">ai will generate script, voiceover, music, and animate your images into videos</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -113,17 +127,43 @@ export default function Upload() {
               </div>
 
               {files.length > 0 && (
-                <div className="mt-4 grid grid-cols-5 gap-2">
-                  {files.map((file, i) => (
-                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-                      <Image
-                        src={URL.createObjectURL(file)}
-                        alt={file.name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  ))}
+                <div className="mt-4">
+                  <p className="text-xs text-gray-600 mb-2">
+                    {thumbnailIndex === null 
+                      ? 'auto-selected: first image (or click to choose thumbnail)' 
+                      : 'click to select thumbnail'}
+                  </p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {files.map((file, i) => {
+                      const imageFiles = files.map((f, idx) => ({ file: f, index: idx })).filter(f => f.file.type.startsWith('image/'));
+                      const autoThumbnailIndex = imageFiles.length > 0 ? imageFiles[0].index : 0;
+                      const isSelected = thumbnailIndex !== null ? thumbnailIndex === i : autoThumbnailIndex === i;
+                      
+                      return (
+                        <div 
+                          key={i} 
+                          onClick={() => setThumbnailIndex(i)}
+                          className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer transition-all ${
+                            isSelected 
+                              ? 'ring-4 ring-purple-500 scale-105' 
+                              : 'ring-1 ring-gray-200 hover:ring-purple-300'
+                          }`}
+                        >
+                          <Image
+                            src={URL.createObjectURL(file)}
+                            alt={file.name}
+                            fill
+                            className="object-cover"
+                          />
+                          {isSelected && (
+                            <div className="absolute top-1 right-1 bg-purple-500 text-white text-xs px-2 py-1 rounded-full">
+                              thumbnail
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
