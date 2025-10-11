@@ -51,7 +51,15 @@ export const getProject = query({
     id: v.id("projects"),
   },
   handler: async (ctx, { id }) => {
-    return await ctx.db.get(id);
+    const project = await ctx.db.get(id);
+    if (!project) return null;
+    
+    return {
+      ...project,
+      fileUrls: await Promise.all(
+        project.files.map((fileId) => ctx.storage.getUrl(fileId))
+      ),
+    };
   },
 });
 
@@ -151,7 +159,7 @@ export const processProjectWithReelful = action({
         },
         body: JSON.stringify({
           message: project.prompt,
-          model: "openai/gpt-4o",
+          model: "openai/gpt-5",
           image_urls: validImageUrls,
         }),
       });
