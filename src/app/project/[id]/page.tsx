@@ -254,24 +254,32 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
             )}
 
-            {project.renderedVideoUrl && (
-              <div className="border-t pt-6">
-                <p className="text-sm font-medium text-gray-700 mb-1">final rendered video</p>
-                <p className="text-xs text-gray-500 mb-3">complete video ready to use</p>
-                <a 
-                  href={project.renderedVideoUrl}
-                  download
-                  className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 text-purple-800 rounded-lg text-sm font-semibold hover:shadow-lg transition-all"
-                >
-                  <span className="text-2xl">🎥</span>
-                  <div className="flex-1 text-left">
-                    <div className="font-bold">final rendered video</div>
-                    <div className="text-xs text-purple-600">complete video with all effects and transitions</div>
-                  </div>
-                  <span className="text-xs">⬇</span>
-                </a>
-              </div>
-            )}
+            <div className="border-t pt-6">
+              <p className="text-sm font-medium text-gray-700 mb-3">output files (out/)</p>
+              {project.renderedVideoUrl ? (
+                <>
+                  <p className="text-xs text-gray-500 mb-3">rendered video ready</p>
+                  <a 
+                    href={project.renderedVideoUrl}
+                    download
+                    className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 text-purple-800 rounded-lg text-sm font-semibold hover:shadow-lg transition-all"
+                  >
+                    <span className="text-2xl">🎥</span>
+                    <div className="flex-1 text-left">
+                      <div className="font-bold">result.mp4</div>
+                      <div className="text-xs text-purple-600">final rendered video from remotion</div>
+                    </div>
+                    <span className="text-xs">⬇</span>
+                  </a>
+                </>
+              ) : (
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                  <div className="text-3xl mb-2">📁</div>
+                  <p className="text-sm text-gray-600">not rendered yet</p>
+                  <p className="text-xs text-gray-500 mt-1">click render button to generate video</p>
+                </div>
+              )}
+            </div>
 
             {project.error && (
               <div className="border-t pt-6">
