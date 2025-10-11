@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { Sandbox } from "e2b";
+import { Sandbox } from "@vercel/sandbox";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
@@ -22,39 +22,75 @@ export const renderVideo = action({
         throw new Error("project not found");
       }
 
-      const sandbox = await Sandbox.create('8r14p0kvwebvpgno5hia');
+      console.log("creating sandbox...");
+      const sandbox = await Sandbox.create({
+        source: {
+          url: "https://github.com/caffeinum/remotion-template",
+          type: "git",
+        },
+      });
 
-      console.log(`uploading media files...`);
+      console.log("installing dependencies...");
+      const install = await sandbox.runCommand({
+        cmd: "bun",
+        args: ["install"],
+      });
+
+      if (install.exitCode !== 0) {
+        throw new Error(`install failed: ${install.stderr}`);
+      }
+
+      console.log("creating media directory...");
+      await sandbox.mkDir("./public/media");
+
+      console.log("uploading media files...");
+      const files: { path: string; content: Buffer }[] = [];
+
       if (project.audioUrl) {
         const audioResponse = await fetch(project.audioUrl);
-        const audioBuffer = await audioResponse.arrayBuffer();
-        await sandbox.files.write('public/audio.mp3', audioBuffer);
+        const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+        files.push({ path: "./public/media/audio.mp3", content: audioBuffer });
       }
 
       if (project.musicUrl) {
         const musicResponse = await fetch(project.musicUrl);
-        const musicBuffer = await musicResponse.arrayBuffer();
-        await sandbox.files.write('public/music.mp3', musicBuffer);
+        const musicBuffer = Buffer.from(await musicResponse.arrayBuffer());
+        files.push({ path: "./public/media/music.mp3", content: musicBuffer });
       }
 
       if (project.videoUrls) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           const videoResponse = await fetch(project.videoUrls[i]);
-          const videoBuffer = await videoResponse.arrayBuffer();
-          await sandbox.files.write(`public/video${i}.mp4`, videoBuffer);
+          const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+          files.push({ path: `./public/media/video${i}.mp4`, content: videoBuffer });
         }
       }
 
-      console.log(`running remotion render...`);
-      const render = await sandbox.commands.run("bun remotion render");
+      await sandbox.writeFiles(files);
+
+      console.log("running remotion render...");
+      const render = await sandbox.runCommand({
+        cmd: "bun",
+        args: ["remotion", "render"],
+      });
 
       if (render.exitCode !== 0) {
         throw new Error(`render failed: ${render.stderr}`);
       }
 
-      console.log(`reading output video...`);
-      const outputVideo = await sandbox.files.read('out/video.mp4');
+      console.log("reading output video...");
+      const outputStream = await sandbox.readFile({ path: "./out/result.mp4" });
       
+      if (!outputStream) {
+        throw new Error("output video not found");
+      }
+
+      const chunks: Buffer[] = [];
+      for await (const chunk of outputStream) {
+        chunks.push(Buffer.from(chunk));
+      }
+      const outputVideo = Buffer.concat(chunks);
+
       const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const uploadResponse: Response = await fetch(uploadUrl, {
         method: "POST",
@@ -70,7 +106,7 @@ export const renderVideo = action({
         status: "completed",
       });
 
-      await sandbox.kill();
+      await sandbox.stop();
 
       return { success: true, renderedVideoUrl };
     } catch (error) {

@@ -10,6 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@vercel/sandbox": "^0.0.23",
     "convex": "^1.27.5",
     "convex-helpers": "^0.1.104",
     "e2b": "^2.2.7",
