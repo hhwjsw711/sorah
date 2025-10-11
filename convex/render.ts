@@ -1,6 +1,6 @@
 "use node";
 
-import { action, query } from "./_generated/server";
+import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { Sandbox } from "e2b";
 import { api } from "./_generated/api";
