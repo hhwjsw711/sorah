@@ -44,7 +44,10 @@ export const renderVideo = action({
       
       const sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
         autoPause: true,
-        timeoutMs: 900000, // 15 min
+        timeoutMs: 900000,
+        envs: {
+          CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
+        },
       });
       console.log("[render] sandbox created:", sandbox.sandboxId);
 
@@ -75,7 +78,7 @@ we use bun btw
 composition should be portrait!`;
 
       const claudeResult = await sandbox.commands.run(
-        `export CLAUDE_CODE_OAUTH_TOKEN="${claudeToken}" && claude --print --dangerously-skip-permissions --verbose --output-format stream-json "${videoEditorPrompt.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+        `claude --print --dangerously-skip-permissions --verbose --output-format stream-json "${videoEditorPrompt.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
         { 
           cwd: "/home/user",
           timeoutMs: 600000,
