@@ -1,4 +1,4 @@
-import { query, mutation, action } from "./_generated/server";
+import { query, mutation, action, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
@@ -43,7 +43,9 @@ export const getProjects = query({
         fileUrls: await Promise.all(
           project.files.map((fileId) => ctx.storage.getUrl(fileId))
         ),
-        thumbnailUrl: project.thumbnail ? await ctx.storage.getUrl(project.thumbnail) : null,
+        thumbnailUrl: project.thumbnail
+          ? await ctx.storage.getUrl(project.thumbnail)
+          : null,
       }))
     );
   },
@@ -56,13 +58,15 @@ export const getProject = query({
   handler: async (ctx, { id }) => {
     const project = await ctx.db.get(id);
     if (!project) return null;
-    
+
     return {
       ...project,
       fileUrls: await Promise.all(
         project.files.map((fileId) => ctx.storage.getUrl(fileId))
       ),
-      thumbnailUrl: project.thumbnail ? await ctx.storage.getUrl(project.thumbnail) : null,
+      thumbnailUrl: project.thumbnail
+        ? await ctx.storage.getUrl(project.thumbnail)
+        : null,
     };
   },
 });
@@ -90,19 +94,20 @@ export const updateProjectWithReelfulData = mutation({
     error: v.optional(v.string()),
     status: v.union(v.literal("completed"), v.literal("failed")),
   },
-  handler: async (ctx, { id, script, audioUrl, musicUrl, videoUrls, error, status }) => {
-    const updates = {
+  handler: async (
+    ctx,
+    { id, script, audioUrl, musicUrl, videoUrls, error, status }
+  ) => {
+    await ctx.db.patch(id, {
       status,
       completedAt: Date.now(),
-    };
-    
-    if (script !== undefined) updates.script = script;
-    if (audioUrl !== undefined) updates.audioUrl = audioUrl;
-    if (musicUrl !== undefined) updates.musicUrl = musicUrl;
-    if (videoUrls !== undefined) updates.videoUrls = videoUrls;
-    if (error !== undefined) updates.error = error;
-    
-    await ctx.db.patch(id, updates);
+      script,
+      audioUrl,
+      musicUrl,
+      videoUrls,
+      error,
+    });
+
     return id;
   },
 });
@@ -125,7 +130,8 @@ export const simulateCompleted = mutation({
     await ctx.db.patch(id, {
       status: "completed",
       completedAt: Date.now(),
-      script: "this is a simulated script. ever wonder how top businesses save 10 hours a week? meet our product, the game-changing automation platform that helps you work smarter, not harder. join thousands of happy users today!",
+      script:
+        "this is a simulated script. ever wonder how top businesses save 10 hours a week? meet our product, the game-changing automation platform that helps you work smarter, not harder. join thousands of happy users today!",
       audioUrl: "https://example.com/audio.mp3",
       musicUrl: "https://example.com/music.mp3",
       videoUrls: [
@@ -156,7 +162,9 @@ export const processProjectWithReelful = action({
       })
     );
 
-    const validImageUrls = imageUrls.filter((url): url is string => url !== null);
+    const validImageUrls = imageUrls.filter(
+      (url): url is string => url !== null
+    );
 
     try {
       const response = await fetch(`${reelfulApiUrl}/chat`, {
@@ -177,9 +185,15 @@ export const processProjectWithReelful = action({
 
       const data = await response.json();
 
-      const audioUrl = data.audio_path ? `${reelfulApiUrl}${data.audio_path}` : undefined;
-      const musicUrl = data.music_path ? `${reelfulApiUrl}${data.music_path}` : undefined;
-      const videoUrls = data.video_paths?.map((path: string) => `${reelfulApiUrl}${path}`);
+      const audioUrl = data.audio_path
+        ? `${reelfulApiUrl}${data.audio_path}`
+        : undefined;
+      const musicUrl = data.music_path
+        ? `${reelfulApiUrl}${data.music_path}`
+        : undefined;
+      const videoUrls = data.video_paths?.map(
+        (path: string) => `${reelfulApiUrl}${path}`
+      );
 
       await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
         id: projectId,
@@ -199,7 +213,10 @@ export const processProjectWithReelful = action({
         status: "failed",
       });
 
-      return { success: false, error: error instanceof Error ? error.message : "unknown error" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "unknown error",
+      };
     }
   },
 });
