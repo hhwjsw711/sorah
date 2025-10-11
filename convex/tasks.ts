@@ -394,7 +394,7 @@ export const regenerateScript = action({
         audioUrl: project.audioUrl,
         musicUrl: project.musicUrl,
         videoUrls: project.videoUrls,
-        status: project.status as "completed" | "failed",
+        status: "completed",
       });
 
       console.log("[regenerate-script] script regenerated");
@@ -449,7 +449,7 @@ export const regenerateVoiceover = action({
         audioUrl: audioUrl || undefined,
         musicUrl: project.musicUrl,
         videoUrls: project.videoUrls,
-        status: project.status as "completed" | "failed",
+        status: "completed",
       });
 
       console.log("[regenerate-voiceover] voiceover regenerated");
@@ -504,7 +504,7 @@ export const regenerateAnimations = action({
         audioUrl: project.audioUrl,
         musicUrl: project.musicUrl,
         videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
-        status: project.status as "completed" | "failed",
+        status: "completed",
       });
 
       console.log("[regenerate-animations] animations regenerated");
