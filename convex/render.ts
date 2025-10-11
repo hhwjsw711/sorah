@@ -119,7 +119,7 @@ export const renderVideo = action({
       console.log("[render] remotion render completed");
 
       console.log("[render] reading output video...");
-      const outputVideo = await sandbox.files.read("/home/user/out/result.mp4");
+      const outputVideo = await sandbox.files.read("/home/user/out/Main.mp4");
       
       if (!outputVideo) {
         throw new Error("output video not found");

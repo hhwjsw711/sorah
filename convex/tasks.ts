@@ -210,14 +210,14 @@ export const processProjectWithReelful = action({
     }
 
     const imageUrls = await Promise.all(
-      project.files.map(async (fileId) => {
+      project.files.map(async (fileId: Id<"_storage">) => {
         const url = await ctx.storage.getUrl(fileId);
         return url;
       })
     );
 
     const validImageUrls = imageUrls.filter(
-      (url): url is string => url !== null
+      (url: string | null): url is string => url !== null
     );
 
     try {
@@ -289,7 +289,7 @@ export const processProjectWithAI = action({
       }
 
       console.log("[ai-process] step 1: generating script");
-      const imageUrls = project.fileUrls?.filter((url): url is string => url !== null) || [];
+      const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
       const scriptResult = await ctx.runAction(api.aiServices.generateScript, {
         prompt: project.prompt,
         imageUrls,
@@ -360,6 +360,160 @@ export const processProjectWithAI = action({
       return {
         success: false,
         error: error instanceof Error ? error.message : "ai processing failed",
+      };
+    }
+  },
+});
+
+export const regenerateScript = action({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { projectId }): Promise<{ success: boolean; script?: string; error?: string }> => {
+    console.log("[regenerate-script] regenerating script for project:", projectId);
+
+    try {
+      const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+      if (!project) {
+        throw new Error("project not found");
+      }
+
+      const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
+      const scriptResult = await ctx.runAction(api.aiServices.generateScript, {
+        prompt: project.prompt,
+        imageUrls,
+      });
+
+      if (!scriptResult.success) {
+        throw new Error(`script generation failed: ${scriptResult.error}`);
+      }
+
+      await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+        id: projectId,
+        script: scriptResult.script,
+        audioUrl: project.audioUrl,
+        musicUrl: project.musicUrl,
+        videoUrls: project.videoUrls,
+        status: project.status as "completed" | "failed",
+      });
+
+      console.log("[regenerate-script] script regenerated");
+      return { success: true, script: scriptResult.script };
+    } catch (error) {
+      console.error("[regenerate-script] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "script regeneration failed",
+      };
+    }
+  },
+});
+
+export const regenerateVoiceover = action({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { projectId }): Promise<{ success: boolean; audioUrl?: string | null; error?: string }> => {
+    console.log("[regenerate-voiceover] regenerating voiceover for project:", projectId);
+
+    try {
+      const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+      if (!project) {
+        throw new Error("project not found");
+      }
+
+      if (!project.script) {
+        throw new Error("no script found - generate script first");
+      }
+
+      const voiceoverResult = await ctx.runAction(api.aiServices.generateVoiceover, {
+        text: project.script,
+      });
+
+      if (!voiceoverResult.success) {
+        throw new Error(`voiceover generation failed: ${voiceoverResult.error}`);
+      }
+
+      const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const voiceoverUpload = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "audio/mp3" },
+        body: voiceoverResult.audio,
+      });
+      const { storageId: audioStorageId } = await voiceoverUpload.json();
+      const audioUrl = await ctx.storage.getUrl(audioStorageId);
+
+      await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+        id: projectId,
+        script: project.script,
+        audioUrl: audioUrl || undefined,
+        musicUrl: project.musicUrl,
+        videoUrls: project.videoUrls,
+        status: project.status as "completed" | "failed",
+      });
+
+      console.log("[regenerate-voiceover] voiceover regenerated");
+      return { success: true, audioUrl };
+    } catch (error) {
+      console.error("[regenerate-voiceover] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "voiceover regeneration failed",
+      };
+    }
+  },
+});
+
+export const regenerateAnimations = action({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { projectId }): Promise<{ success: boolean; videoUrls?: string[]; error?: string }> => {
+    console.log("[regenerate-animations] regenerating animations for project:", projectId);
+
+    try {
+      const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+      if (!project) {
+        throw new Error("project not found");
+      }
+
+      const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
+      if (imageUrls.length === 0) {
+        throw new Error("no images found");
+      }
+
+      const videoUrls: string[] = [];
+      for (let i = 0; i < Math.min(imageUrls.length, 3); i++) {
+        console.log(`[regenerate-animations] animating image ${i + 1}/${imageUrls.length}`);
+        const animateResult = await ctx.runAction(api.aiServices.animateImage, {
+          imageUrl: imageUrls[i],
+        });
+
+        if (animateResult.success && animateResult.data) {
+          const videoUrl = (animateResult.data as any).video?.url;
+          if (videoUrl) {
+            videoUrls.push(videoUrl);
+            console.log(`[regenerate-animations] animated image ${i + 1}`);
+          }
+        }
+      }
+
+      await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+        id: projectId,
+        script: project.script,
+        audioUrl: project.audioUrl,
+        musicUrl: project.musicUrl,
+        videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
+        status: project.status as "completed" | "failed",
+      });
+
+      console.log("[regenerate-animations] animations regenerated");
+      return { success: true, videoUrls };
+    } catch (error) {
+      console.error("[regenerate-animations] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "animations regeneration failed",
       };
     }
   },

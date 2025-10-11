@@ -13,7 +13,13 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const { id } = use(params);
   const project = useQuery(api.tasks.getProject, { id: id as Id<"projects"> });
   const renderVideo = useAction(api.render.renderVideo);
+  const regenerateScript = useAction(api.tasks.regenerateScript);
+  const regenerateVoiceover = useAction(api.tasks.regenerateVoiceover);
+  const regenerateAnimations = useAction(api.tasks.regenerateAnimations);
   const [rendering, setRendering] = useState(false);
+  const [regeneratingScript, setRegeneratingScript] = useState(false);
+  const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
+  const [regeneratingAnimations, setRegeneratingAnimations] = useState(false);
 
   if (!project) {
     return (
@@ -174,6 +180,22 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">3. generate voiceover</p>
                     <p className="text-sm text-gray-600">converting script to speech with elevenlabs</p>
                   </div>
+                  {project.audioUrl && (
+                    <button
+                      onClick={async () => {
+                        setRegeneratingVoiceover(true);
+                        try {
+                          await regenerateVoiceover({ projectId: id as Id<"projects"> });
+                        } finally {
+                          setRegeneratingVoiceover(false);
+                        }
+                      }}
+                      disabled={regeneratingVoiceover}
+                      className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                    >
+                      {regeneratingVoiceover ? "regenerating..." : "regenerate"}
+                    </button>
+                  )}
                 </div>
 
                 <div className={`flex items-center gap-3 p-4 rounded-lg ${
@@ -198,13 +220,45 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">5. animate images</p>
                     <p className="text-sm text-gray-600">generating 3-second videos from images using fal ai</p>
                   </div>
+                  {project.videoUrls && project.videoUrls.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        setRegeneratingAnimations(true);
+                        try {
+                          await regenerateAnimations({ projectId: id as Id<"projects"> });
+                        } finally {
+                          setRegeneratingAnimations(false);
+                        }
+                      }}
+                      disabled={regeneratingAnimations}
+                      className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                    >
+                      {regeneratingAnimations ? "regenerating..." : "regenerate"}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
             {project.script && (
               <div className="border-t pt-6">
-                <p className="text-sm font-medium text-gray-700 mb-2">generated script</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-700">generated script</p>
+                  <button
+                    onClick={async () => {
+                      setRegeneratingScript(true);
+                      try {
+                        await regenerateScript({ projectId: id as Id<"projects"> });
+                      } finally {
+                        setRegeneratingScript(false);
+                      }
+                    }}
+                    disabled={regeneratingScript}
+                    className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
+                  >
+                    {regeneratingScript ? "regenerating..." : "regenerate"}
+                  </button>
+                </div>
                 <p className="text-gray-800 p-4 bg-gray-50 rounded-lg leading-relaxed">{project.script}</p>
               </div>
             )}
@@ -266,7 +320,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   >
                     <span className="text-2xl">🎥</span>
                     <div className="flex-1 text-left">
-                      <div className="font-bold">result.mp4</div>
+                      <div className="font-bold">Main.mp4</div>
                       <div className="text-xs text-purple-600">final rendered video from remotion</div>
                     </div>
                     <span className="text-xs">⬇</span>
