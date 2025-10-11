@@ -227,6 +227,26 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
             )}
 
+            {project.status === "rendering" && project.renderProgress && (
+              <div className="border-t pt-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">render progress</h2>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="text-2xl animate-spin">⚙️</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-blue-900">{project.renderProgress.step}</p>
+                      {project.renderProgress.details && (
+                        <p className="text-sm text-blue-700">{project.renderProgress.details}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-blue-600">
+                    last updated: {new Date(project.renderProgress.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {project.renderedVideoUrl && (
               <div className="border-t pt-6">
                 <p className="text-sm font-medium text-gray-700 mb-1">final rendered video</p>

@@ -27,5 +27,12 @@ export default defineSchema({
     error: v.optional(v.string()),
     reelfulApiUrl: v.optional(v.string()),
     renderedVideoUrl: v.optional(v.string()),
+    renderProgress: v.optional(
+      v.object({
+        step: v.string(),
+        details: v.optional(v.string()),
+        timestamp: v.number(),
+      })
+    ),
   }),
 });

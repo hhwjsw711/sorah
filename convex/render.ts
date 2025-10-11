@@ -27,6 +27,12 @@ export const renderVideo = action({
       console.log("[render] project loaded, has audio:", !!project.audioUrl, "music:", !!project.musicUrl, "videos:", project.videoUrls?.length || 0);
 
       console.log("[render] creating e2b sandbox...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "creating sandbox",
+        details: "initializing e2b environment",
+      });
+      
       const apiKey = process.env.E2B_API_KEY;
       if (!apiKey) {
         throw new Error("E2B_API_KEY not set in convex environment variables");
@@ -36,6 +42,12 @@ export const renderVideo = action({
       console.log("[render] sandbox created:", sandbox.sandboxId);
 
       console.log("[render] cloning remotion template...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "cloning template",
+        details: "downloading remotion template from github",
+      });
+      
       const cloneResult = await sandbox.commands.run("git clone https://github.com/caffeinum/remotion-template /home/user/remotion-template");
       console.log("[render] clone result:", cloneResult.stdout);
       if (cloneResult.exitCode !== 0) {
@@ -43,6 +55,12 @@ export const renderVideo = action({
       }
 
       console.log("[render] installing dependencies...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "installing dependencies",
+        details: "running bun install",
+      });
+      
       const installResult = await sandbox.commands.run("bun install", { cwd: "/home/user/remotion-template" });
       console.log("[render] install result:", installResult.stdout);
       if (installResult.exitCode !== 0) {
@@ -55,6 +73,12 @@ export const renderVideo = action({
       console.log("[render] media directory created");
 
       console.log("[render] uploading media files...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "uploading media",
+        details: "transferring files to sandbox",
+      });
+      
       if (project.audioUrl) {
         console.log("[render] fetching audio from:", project.audioUrl);
         const audioResponse = await fetch(project.audioUrl);
@@ -83,6 +107,12 @@ export const renderVideo = action({
       console.log("[render] files uploaded");
 
       console.log("[render] running remotion render...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "rendering video",
+        details: "composing final video with remotion",
+      });
+      
       const renderResult = await sandbox.commands.run("bun remotion render", { cwd: "/home/user/remotion-template" });
       console.log("[render] render stdout:", renderResult.stdout);
       console.log("[render] render stderr:", renderResult.stderr);
@@ -102,6 +132,12 @@ export const renderVideo = action({
       console.log("[render] output video size:", outputSize);
 
       console.log("[render] uploading to convex storage...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "saving video",
+        details: "uploading final video to storage",
+      });
+      
       const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const uploadResponse: Response = await fetch(uploadUrl, {
         method: "POST",

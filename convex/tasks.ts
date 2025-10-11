@@ -151,6 +151,25 @@ export const updateProjectWithRenderResult = mutation({
       renderedVideoUrl,
       error,
       completedAt: Date.now(),
+      renderProgress: undefined,
+    });
+    return id;
+  },
+});
+
+export const updateRenderProgress = mutation({
+  args: {
+    id: v.id("projects"),
+    step: v.string(),
+    details: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, step, details }) => {
+    await ctx.db.patch(id, {
+      renderProgress: {
+        step,
+        details,
+        timestamp: Date.now(),
+      },
     });
     return id;
   },
