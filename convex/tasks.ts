@@ -307,19 +307,11 @@ export const processProjectWithAI = action({
         text: script,
       });
 
-      if (!voiceoverResult.success) {
+      if (!voiceoverResult.success || !voiceoverResult.audioUrl) {
         throw new Error(`voiceover generation failed: ${voiceoverResult.error}`);
       }
 
-      console.log("[ai-process] voiceover generated, uploading...");
-      const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
-      const voiceoverUpload = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": "audio/mp3" },
-        body: voiceoverResult.audio,
-      });
-      const { storageId: audioStorageId } = await voiceoverUpload.json();
-      const audioUrl = await ctx.storage.getUrl(audioStorageId);
+      const audioUrl = voiceoverResult.audioUrl;
       console.log("[ai-process] voiceover uploaded:", audioUrl);
 
       console.log("[ai-process] step 3: animating images");
@@ -431,20 +423,12 @@ export const regenerateVoiceover = action({
         text: project.script,
       });
 
-      if (!voiceoverResult.success) {
+      if (!voiceoverResult.success || !voiceoverResult.audioUrl) {
         throw new Error(`voiceover generation failed: ${voiceoverResult.error}`);
       }
 
-      console.log("[regenerate-voiceover] voiceover generated, uploading...");
-      const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
-      const voiceoverUpload = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": "audio/mp3" },
-        body: voiceoverResult.audio,
-      });
-      const { storageId: audioStorageId } = await voiceoverUpload.json();
-      const audioUrl = await ctx.storage.getUrl(audioStorageId as Id<"_storage">);
-      console.log("[regenerate-voiceover] voiceover uploaded");
+      const audioUrl = voiceoverResult.audioUrl;
+      console.log("[regenerate-voiceover] voiceover uploaded:", audioUrl);
 
       await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
         id: projectId,

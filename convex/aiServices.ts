@@ -6,6 +6,7 @@ import { fal } from "@fal-ai/client";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+import { api } from "./_generated/api";
 
 export const transcribeAudio = action({
   args: {
@@ -90,7 +91,7 @@ export const generateVoiceover = action({
     text: v.string(),
     voiceId: v.optional(v.string()),
   },
-  handler: async (ctx, { text, voiceId = "y3QRUmmVlCstT6DNbXg9" }) => {
+  handler: async (ctx, { text, voiceId = "y3QRUmmVlCstT6DNbXg9" }): Promise<{ success: boolean; audioUrl?: string | null; error?: string }> => {
     console.log("[voiceover] generating voiceover");
     
     try {
@@ -132,7 +133,18 @@ export const generateVoiceover = action({
       }
 
       console.log("[voiceover] voiceover generated, size:", audioBuffer.length);
-      return { success: true, audio: audioBuffer, audioSize: audioBuffer.length };
+      
+      const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "audio/mp3" },
+        body: audioBuffer,
+      });
+      const { storageId } = await uploadResponse.json();
+      const audioUrl = await ctx.storage.getUrl(storageId);
+      
+      console.log("[voiceover] voiceover uploaded to storage");
+      return { success: true, audioUrl };
     } catch (error) {
       console.error("[voiceover] error:", error);
       return {
