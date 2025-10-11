@@ -129,7 +129,7 @@ export default function Home() {
                   )}
 
                   <div className="mt-4 flex gap-2">
-                    {(project.status === "completed" || project.status === "failed") && !project.renderedVideoUrl && (
+                    {(project.status === "completed" || project.status === "failed" || project.status === "rendering") && !project.renderedVideoUrl && (
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
@@ -149,7 +149,7 @@ export default function Home() {
                         disabled={renderingIds.has(project._id)}
                         className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm hover:shadow-lg transition-all disabled:opacity-50"
                       >
-                        {renderingIds.has(project._id) ? "rendering..." : project.status === "failed" ? "retry render" : "render video"}
+                        {renderingIds.has(project._id) ? "rendering..." : project.status === "rendering" ? "restart render" : project.status === "failed" ? "retry render" : "render video"}
                       </button>
                     )}
                     <button

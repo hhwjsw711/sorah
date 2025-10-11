@@ -52,7 +52,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               }`}>
                 {project.status || "processing"}
               </div>
-              {(project.status === "completed" || project.status === "failed") && !project.renderedVideoUrl && (
+              {(project.status === "completed" || project.status === "failed" || project.status === "rendering") && !project.renderedVideoUrl && (
                 <button
                   onClick={async () => {
                     setRendering(true);
@@ -67,7 +67,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   disabled={rendering}
                   className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50"
                 >
-                  {rendering ? "rendering..." : project.status === "failed" ? "retry render" : "render video"}
+                  {rendering ? "rendering..." : project.status === "rendering" ? "restart render" : project.status === "failed" ? "retry render" : "render video"}
                 </button>
               )}
             </div>
