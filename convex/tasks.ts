@@ -461,13 +461,17 @@ export const regenerateVoiceover = action({
       }
 
       const audioUrl = voiceoverResult.audioUrl;
+      const srtContent = voiceoverResult.srtContent;
       console.log("[regenerate-voiceover] voiceover uploaded:", audioUrl);
+      if (srtContent) {
+        console.log("[regenerate-voiceover] SRT length:", srtContent.length, "chars");
+      }
 
       await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
         id: projectId,
         script: project.script,
         audioUrl: audioUrl || undefined,
-        srtContent: undefined,
+        srtContent: srtContent || undefined,
         musicUrl: project.musicUrl,
         videoUrls: project.videoUrls,
         status: "completed",
