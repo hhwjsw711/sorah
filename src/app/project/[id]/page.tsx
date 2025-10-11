@@ -176,7 +176,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">2. generate script</p>
                     <p className="text-sm text-gray-600">creating 15-second social media script</p>
                   </div>
-                  {project.script && (
+                  {(project.script || project.status === "failed") && (
                     <button
                       onClick={async () => {
                         setRegeneratingScript(true);
@@ -189,7 +189,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       disabled={regeneratingScript}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                     >
-                      {regeneratingScript ? "regenerating..." : "regenerate"}
+                      {regeneratingScript ? "..." : project.script ? "regenerate" : "start"}
                     </button>
                   )}
                 </div>
@@ -204,7 +204,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">3. generate voiceover</p>
                     <p className="text-sm text-gray-600">converting script to speech with elevenlabs</p>
                   </div>
-                  {project.audioUrl && (
+                  {(project.audioUrl || (project.script && project.status === "failed")) && (
                     <button
                       onClick={async () => {
                         setRegeneratingVoiceover(true);
@@ -217,7 +217,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       disabled={regeneratingVoiceover}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                     >
-                      {regeneratingVoiceover ? "regenerating..." : "regenerate"}
+                      {regeneratingVoiceover ? "..." : project.audioUrl ? "regenerate" : "start"}
                     </button>
                   )}
                 </div>
@@ -232,7 +232,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">4. generate background music</p>
                     <p className="text-sm text-gray-600">creating matching background track</p>
                   </div>
-                  {project.musicUrl && (
+                  {(project.musicUrl || (project.audioUrl && project.status === "failed")) && (
                     <button
                       onClick={async () => {
                         setRegeneratingMusic(true);
@@ -245,7 +245,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       disabled={regeneratingMusic}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                     >
-                      {regeneratingMusic ? "regenerating..." : "regenerate"}
+                      {regeneratingMusic ? "..." : project.musicUrl ? "regenerate" : "start"}
                     </button>
                   )}
                 </div>
@@ -260,7 +260,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">5. animate images</p>
                     <p className="text-sm text-gray-600">generating 3-second videos from images using fal ai</p>
                   </div>
-                  {(project.musicUrl || (project.videoUrls && project.videoUrls.length > 0)) && project.status !== "processing" && (
+                  {((project.videoUrls && project.videoUrls.length > 0) || (project.musicUrl && project.status === "failed")) && project.status !== "processing" && (
                     <button
                       onClick={async () => {
                         setRegeneratingAnimations(true);
@@ -273,7 +273,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       disabled={regeneratingAnimations}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                     >
-                      {regeneratingAnimations ? "regenerating..." : "regenerate"}
+                      {regeneratingAnimations ? "..." : (project.videoUrls && project.videoUrls.length > 0) ? "regenerate" : "start"}
                     </button>
                   )}
                 </div>
