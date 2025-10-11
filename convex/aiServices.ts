@@ -98,7 +98,7 @@ export const generateVoiceover = action({
     text: v.string(),
     voiceId: v.optional(v.string()),
   },
-  handler: async (ctx, { text, voiceId = "y3QRUmmVlCstT6DNbXg9" }): Promise<{ success: boolean; audioUrl?: string | null; error?: string }> => {
+  handler: async (ctx, { text, voiceId = "y3QRUmmVlCstT6DNbXg9" }): Promise<{ success: boolean; audioUrl?: string | null; durationMs?: number; error?: string }> => {
     console.log("[voiceover] generating voiceover");
     
     try {
@@ -141,6 +141,10 @@ export const generateVoiceover = action({
 
       console.log("[voiceover] voiceover generated, size:", audioBuffer.length);
       
+      const bitrate = 128000;
+      const durationMs = Math.floor((audioBuffer.length * 8 / bitrate) * 1000);
+      console.log("[voiceover] estimated duration:", durationMs, "ms");
+      
       const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const uploadResponse = await fetch(uploadUrl, {
         method: "POST",
@@ -151,7 +155,7 @@ export const generateVoiceover = action({
       const audioUrl = await ctx.storage.getUrl(storageId);
       
       console.log("[voiceover] voiceover uploaded to storage");
-      return { success: true, audioUrl };
+      return { success: true, audioUrl, durationMs };
     } catch (error) {
       console.error("[voiceover] error:", error);
       return {

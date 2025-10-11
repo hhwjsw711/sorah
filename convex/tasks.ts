@@ -312,12 +312,16 @@ export const processProjectWithAI = action({
       }
 
       const audioUrl = voiceoverResult.audioUrl;
-      console.log("[ai-process] voiceover uploaded:", audioUrl);
+      const voiceoverDuration = voiceoverResult.durationMs || 15000;
+      console.log("[ai-process] voiceover uploaded:", audioUrl, "duration:", voiceoverDuration, "ms");
 
       console.log("[ai-process] step 3: generating background music");
+      const adjustedMusicDuration = Math.floor(voiceoverDuration / 1.25);
+      console.log("[ai-process] music duration (voiceover / 1.25):", adjustedMusicDuration, "ms");
+      
       const musicResult = await ctx.runAction(api.aiServices.generateMusic, {
         prompt: "upbeat background music for social media video",
-        durationMs: 15000,
+        durationMs: adjustedMusicDuration,
       });
 
       const musicUrl = musicResult.success ? musicResult.musicUrl : undefined;
