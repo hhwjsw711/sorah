@@ -282,6 +282,11 @@ export const processProjectWithAI = action({
   handler: async (ctx, { projectId }) => {
     console.log("[ai-process] starting ai processing for project:", projectId);
 
+    let script: string | undefined;
+    let audioUrl: string | null | undefined;
+    let musicUrl: string | null | undefined;
+    let videoUrls: string[] = [];
+
     try {
       const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
       if (!project) {
@@ -299,7 +304,7 @@ export const processProjectWithAI = action({
         throw new Error(`script generation failed: ${scriptResult.error}`);
       }
 
-      const script = scriptResult.script!;
+      script = scriptResult.script!;
       console.log("[ai-process] script generated:", script);
 
       console.log("[ai-process] step 2: generating voiceover");
@@ -311,7 +316,7 @@ export const processProjectWithAI = action({
         throw new Error(`voiceover generation failed: ${voiceoverResult.error}`);
       }
 
-      const audioUrl = voiceoverResult.audioUrl;
+      audioUrl = voiceoverResult.audioUrl;
       const voiceoverDuration = voiceoverResult.durationMs || 15000;
       console.log("[ai-process] voiceover uploaded:", audioUrl, "duration:", voiceoverDuration, "ms");
 
@@ -324,13 +329,12 @@ export const processProjectWithAI = action({
         durationMs: adjustedMusicDuration,
       });
 
-      const musicUrl = musicResult.success ? musicResult.musicUrl : undefined;
+      musicUrl = musicResult.success ? musicResult.musicUrl : undefined;
       if (musicUrl) {
         console.log("[ai-process] music uploaded:", musicUrl);
       }
 
       console.log("[ai-process] step 4: animating images");
-      const videoUrls: string[] = [];
       for (let i = 0; i < Math.min(imageUrls.length, 3); i++) {
         console.log(`[ai-process] animating image ${i + 1}/${imageUrls.length}`);
         const animateResult = await ctx.runAction(api.aiServices.animateImage, {
@@ -361,6 +365,10 @@ export const processProjectWithAI = action({
       console.error("[ai-process] error:", error instanceof Error ? error.message : "unknown error");
       await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
         id: projectId,
+        script: script || undefined,
+        audioUrl: audioUrl || undefined,
+        musicUrl: musicUrl || undefined,
+        videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
         error: error instanceof Error ? error.message : "ai processing failed",
         status: "failed",
       });
