@@ -33,12 +33,14 @@ export const renderVideo = action({
         details: "initializing e2b environment with remotion template",
       });
       
-      const apiKey = process.env.E2B_API_KEY;
-      if (!apiKey) {
+      if (!process.env.E2B_API_KEY) {
         throw new Error("E2B_API_KEY not set in convex environment variables");
       }
       
-      const sandbox = await Sandbox.create("8r14p0kvwebvpgno5hia", { apiKey });
+      const sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
+        autoPause: true,
+        timeoutMs: 900000, // 15 min
+      });
       console.log("[render] sandbox created:", sandbox.sandboxId);
 
       console.log("[render] creating media directories...");
