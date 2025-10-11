@@ -37,11 +37,37 @@ export const renderVideo = action({
         throw new Error("E2B_API_KEY not set in convex environment variables");
       }
       
+      const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      if (!claudeToken) {
+        throw new Error("CLAUDE_CODE_OAUTH_TOKEN not set in convex environment variables");
+      }
+      
       const sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
         autoPause: true,
         timeoutMs: 900000, // 15 min
       });
       console.log("[render] sandbox created:", sandbox.sandboxId);
+
+      console.log("[render] running claude code suggestions...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "claude analysis",
+        details: "running claude code to improve remotion template",
+      });
+      
+      const claudeResult = await sandbox.commands.run(
+        `export CLAUDE_CODE_OAUTH_TOKEN="${claudeToken}" && claude --print "${project.prompt || 'optimize the remotion video template'}"`,
+        { 
+          cwd: "/home/user",
+          timeoutMs: 120000,
+        }
+      );
+      console.log("[render] claude exit code:", claudeResult.exitCode);
+      console.log("[render] claude output (last 500 chars):", claudeResult.stdout.slice(-500));
+      
+      if (claudeResult.exitCode !== 0) {
+        console.log("[render] claude failed, but continuing with render:", claudeResult.stderr);
+      }
 
       console.log("[render] creating media directories...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
