@@ -21,7 +21,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
   const readSandboxFile = useAction(api.render.readSandboxFile);
-  const downloadSandboxFile = useAction(api.render.downloadSandboxFile);
   const [rendering, setRendering] = useState(false);
   const [regeneratingScript, setRegeneratingScript] = useState(false);
   const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
@@ -527,12 +526,23 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                         {!file.isDir && (
                           <button
                             onClick={async () => {
-                              const result = await downloadSandboxFile({ 
+                              const result = await readSandboxFile({ 
                                 sandboxId: project.sandboxId!, 
                                 filePath: file.path 
                               });
-                              if (result.success && "downloadUrl" in result && result.downloadUrl) {
-                                window.open(result.downloadUrl, '_blank');
+                              if (result.success && "content" in result) {
+                                const binaryString = atob(result.content || "");
+                                const bytes = new Uint8Array(binaryString.length);
+                                for (let i = 0; i < binaryString.length; i++) {
+                                  bytes[i] = binaryString.charCodeAt(i);
+                                }
+                                const blob = new Blob([bytes]);
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = file.name;
+                                a.click();
+                                URL.revokeObjectURL(url);
                               }
                             }}
                             className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs"
