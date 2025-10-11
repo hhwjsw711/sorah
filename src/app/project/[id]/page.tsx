@@ -168,6 +168,22 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">2. generate script</p>
                     <p className="text-sm text-gray-600">creating 15-second social media script</p>
                   </div>
+                  {project.script && (
+                    <button
+                      onClick={async () => {
+                        setRegeneratingScript(true);
+                        try {
+                          await regenerateScript({ projectId: id as Id<"projects"> });
+                        } finally {
+                          setRegeneratingScript(false);
+                        }
+                      }}
+                      disabled={regeneratingScript}
+                      className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                    >
+                      {regeneratingScript ? "regenerating..." : "regenerate"}
+                    </button>
+                  )}
                 </div>
 
                 <div className={`flex items-center gap-3 p-4 rounded-lg ${
