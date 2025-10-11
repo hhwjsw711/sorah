@@ -4,7 +4,7 @@ tmux:
 
 services:
   frontend:
-    setup: bun install
+    setup: bun install && bun convex dev --once
     command: bun run dev
     cwd: .
     port: 3000
