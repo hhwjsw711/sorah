@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
@@ -33,9 +33,37 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [commandOutput, setCommandOutput] = useState<{ stdout: string; stderr: string; exitCode: number } | null>(null);
   const [runningCommand, setRunningCommand] = useState(false);
   const [outFiles, setOutFiles] = useState<{ name: string; path: string; isDir: boolean }[]>([]);
+  const [mediaFiles, setMediaFiles] = useState<{ name: string; path: string; isDir: boolean }[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{ name: string; content: string; isText: boolean } | null>(null);
   const [loadingFileContent, setLoadingFileContent] = useState(false);
+
+  const loadFiles = async () => {
+    if (!project?.sandboxId) return;
+    
+    setLoadingFiles(true);
+    try {
+      const [outResult, mediaResult] = await Promise.all([
+        listSandboxFiles({ sandboxId: project.sandboxId, path: "/home/user/out" }),
+        listSandboxFiles({ sandboxId: project.sandboxId, path: "/home/user/public/media" }),
+      ]);
+      
+      if (outResult.success && "files" in outResult) {
+        setOutFiles(outResult.files || []);
+      }
+      if (mediaResult.success && "files" in mediaResult) {
+        setMediaFiles(mediaResult.files || []);
+      }
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+  useEffect(() => {
+    if (project?.sandboxId) {
+      loadFiles();
+    }
+  }, [project?.sandboxId]);
 
   if (!project) {
     return (
@@ -470,25 +498,69 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             {project.sandboxId && (
               <div className="border-t pt-6">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-gray-700">sandbox files (out/)</p>
+                  <p className="text-sm font-medium text-gray-700">input files (public/media/)</p>
                   <button
-                    onClick={async () => {
-                      setLoadingFiles(true);
-                      try {
-                        const result = await listSandboxFiles({ sandboxId: project.sandboxId! });
-                        if (result.success && "files" in result) {
-                          setOutFiles(result.files || []);
-                        }
-                      } finally {
-                        setLoadingFiles(false);
-                      }
-                    }}
+                    onClick={loadFiles}
                     disabled={loadingFiles}
                     className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                   >
-                    {loadingFiles ? "loading..." : "list files"}
+                    {loadingFiles ? "refreshing..." : "refresh"}
                   </button>
                 </div>
+                
+                {mediaFiles.length > 0 && (
+                  <div className="space-y-2 mb-6">
+                    {mediaFiles.map((file) => (
+                      <div key={file.path} className="flex items-center gap-2">
+                        <div className="flex-1 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{file.isDir ? "📁" : "📄"}</span>
+                            <span className="text-sm font-mono">{file.name}</span>
+                          </div>
+                        </div>
+                        {!file.isDir && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "downloadUrl" in result) {
+                                  window.open(result.downloadUrl, '_blank');
+                                }
+                              }}
+                              className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs"
+                              title="preview in browser"
+                            >
+                              👁
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "downloadUrl" in result) {
+                                  const a = document.createElement('a');
+                                  a.href = result.downloadUrl || "";
+                                  a.download = file.name;
+                                  a.click();
+                                }
+                              }}
+                              className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs"
+                              title="download file"
+                            >
+                              ⬇
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-sm font-medium text-gray-700 mb-3">output files (out/)</p>
                 
                 {outFiles.length > 0 && (
                   <div className="space-y-2">
