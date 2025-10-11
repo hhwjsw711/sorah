@@ -75,7 +75,7 @@ we use bun btw
 composition should be portrait!`;
 
       const claudeResult = await sandbox.commands.run(
-        `export CLAUDE_CODE_OAUTH_TOKEN="${claudeToken}" && claude --print "${videoEditorPrompt.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+        `export CLAUDE_CODE_OAUTH_TOKEN="${claudeToken}" && claude --print --dangerously-skip-permissions --verbose --output-format stream-json "${videoEditorPrompt.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
         { 
           cwd: "/home/user",
           timeoutMs: 600000,
