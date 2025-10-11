@@ -88,7 +88,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               <div>
                 <p className="text-sm font-medium text-gray-700 mb-6">uploaded files ({project.fileUrls.length})</p>
                 <DisplayCards
-                  cards={project.fileUrls.slice(0, 3).map((url, i) => ({
+                  cards={project.fileUrls.slice(0, 3).filter((url): url is string => url !== null).map((url, i) => ({
                     icon: <FileImage className="size-4 text-purple-300" />,
                     title: `image ${i + 1}`,
                     description: "ready for processing",
@@ -103,6 +103,36 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       : "[grid-area:stack] translate-x-32 translate-y-20 hover:translate-y-10",
                   }))}
                 />
+              </div>
+            )}
+
+            {(project.audioUrl || project.musicUrl || project.videoUrls) && (
+              <div className="border-t pt-6">
+                <p className="text-sm font-medium text-gray-700 mb-3">media files for rendering</p>
+                <p className="text-xs text-gray-500 mb-3">files that will be placed in public/media/</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {project.audioUrl && (
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <div className="text-2xl mb-2">🎤</div>
+                      <p className="text-xs font-medium text-purple-900">audio.mp3</p>
+                      <p className="text-xs text-purple-600">voiceover</p>
+                    </div>
+                  )}
+                  {project.musicUrl && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="text-2xl mb-2">🎵</div>
+                      <p className="text-xs font-medium text-blue-900">music.mp3</p>
+                      <p className="text-xs text-blue-600">background</p>
+                    </div>
+                  )}
+                  {project.videoUrls?.map((url, i) => (
+                    <div key={i} className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                      <div className="text-2xl mb-2">🎬</div>
+                      <p className="text-xs font-medium text-pink-900">video{i}.mp4</p>
+                      <p className="text-xs text-pink-600">animated</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
