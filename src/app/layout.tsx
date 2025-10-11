@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "sorah - turn your videos into magic",
+  title: "Reelful - turn your videos into magic",
   description: "upload your media, add a prompt, and let ai generate professional social media content with voiceover, music, and animated videos",
 };
 
