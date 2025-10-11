@@ -1,6 +1,7 @@
 import { query, mutation, action, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 export const get = query({
   args: {},
@@ -269,6 +270,51 @@ export const processProjectWithReelful = action({
       return {
         success: false,
         error: error instanceof Error ? error.message : "unknown error",
+      };
+    }
+  },
+});
+
+export const transcribeMedia = action({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, { storageId }) => {
+    console.log("[transcribe] starting transcription for:", storageId);
+
+    try {
+      const url = await ctx.storage.getUrl(storageId);
+      if (!url) {
+        throw new Error("failed to get storage url");
+      }
+
+      console.log("[transcribe] fetching media from storage:", url);
+      const mediaResponse = await fetch(url);
+      const mediaBlob = await mediaResponse.blob();
+      console.log("[transcribe] media fetched, size:", mediaBlob.size);
+
+      console.log("[transcribe] uploading to transcription service...");
+      const formData = new FormData();
+      formData.append("file", mediaBlob, "media.mp4");
+
+      const transcribeResponse = await fetch("https://reels-srt.vercel.app/api/fireworks", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!transcribeResponse.ok) {
+        throw new Error(`transcription failed: ${transcribeResponse.statusText}`);
+      }
+
+      const srtText = await transcribeResponse.text();
+      console.log("[transcribe] transcription complete, length:", srtText.length);
+
+      return { success: true, srt: srtText };
+    } catch (error) {
+      console.error("[transcribe] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "transcription failed",
       };
     }
   },
