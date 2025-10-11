@@ -1,7 +1,7 @@
 "use client";
 
-import { use } from "react";
-import { useQuery } from "convex/react";
+import { use, useState } from "react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,6 +10,8 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const project = useQuery(api.tasks.getProject, { id: id as Id<"projects"> });
+  const renderVideo = useAction(api.render.renderVideo);
+  const [rendering, setRendering] = useState(false);
 
   if (!project) {
     return (
@@ -36,14 +38,36 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
               project status
             </h1>
-            <div className={`px-4 py-2 rounded-full text-sm font-medium ${
-              project.status === "completed" 
-                ? "bg-green-100 text-green-700"
-                : project.status === "failed"
-                ? "bg-red-100 text-red-700"
-                : "bg-yellow-100 text-yellow-700 animate-pulse"
-            }`}>
-              {project.status || "processing"}
+            <div className="flex items-center gap-3">
+              <div className={`px-4 py-2 rounded-full text-sm font-medium ${
+                project.status === "completed" 
+                  ? "bg-green-100 text-green-700"
+                  : project.status === "failed"
+                  ? "bg-red-100 text-red-700"
+                  : project.status === "rendering"
+                  ? "bg-blue-100 text-blue-700 animate-pulse"
+                  : "bg-yellow-100 text-yellow-700 animate-pulse"
+              }`}>
+                {project.status || "processing"}
+              </div>
+              {project.status === "completed" && !project.renderedVideoUrl && (
+                <button
+                  onClick={async () => {
+                    setRendering(true);
+                    try {
+                      await renderVideo({ projectId: id as Id<"projects"> });
+                    } catch (error) {
+                      console.error("render error:", error);
+                    } finally {
+                      setRendering(false);
+                    }
+                  }}
+                  disabled={rendering}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50"
+                >
+                  {rendering ? "rendering..." : "render video"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -200,6 +224,25 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     </a>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {project.renderedVideoUrl && (
+              <div className="border-t pt-6">
+                <p className="text-sm font-medium text-gray-700 mb-1">final rendered video</p>
+                <p className="text-xs text-gray-500 mb-3">complete video ready to use</p>
+                <a 
+                  href={project.renderedVideoUrl}
+                  download
+                  className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 text-purple-800 rounded-lg text-sm font-semibold hover:shadow-lg transition-all"
+                >
+                  <span className="text-2xl">🎥</span>
+                  <div className="flex-1 text-left">
+                    <div className="font-bold">final rendered video</div>
+                    <div className="text-xs text-purple-600">complete video with all effects and transitions</div>
+                  </div>
+                  <span className="text-xs">⬇</span>
+                </a>
               </div>
             )}
 

@@ -122,6 +122,40 @@ export const deleteProject = mutation({
   },
 });
 
+export const updateProjectStatus = mutation({
+  args: {
+    id: v.id("projects"),
+    status: v.union(
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("rendering")
+    ),
+  },
+  handler: async (ctx, { id, status }) => {
+    await ctx.db.patch(id, { status });
+    return id;
+  },
+});
+
+export const updateProjectWithRenderResult = mutation({
+  args: {
+    id: v.id("projects"),
+    renderedVideoUrl: v.optional(v.string()),
+    error: v.optional(v.string()),
+    status: v.union(v.literal("completed"), v.literal("failed")),
+  },
+  handler: async (ctx, { id, renderedVideoUrl, error, status }) => {
+    await ctx.db.patch(id, {
+      status,
+      renderedVideoUrl,
+      error,
+      completedAt: Date.now(),
+    });
+    return id;
+  },
+});
+
 export const simulateCompleted = mutation({
   args: {
     id: v.id("projects"),

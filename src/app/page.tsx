@@ -1,16 +1,19 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function Home() {
   const projects = useQuery(api.tasks.getProjects);
   const simulateCompleted = useMutation(api.tasks.simulateCompleted);
   const deleteProject = useMutation(api.tasks.deleteProject);
+  const renderVideo = useAction(api.render.renderVideo);
   const router = useRouter();
+  const [renderingIds, setRenderingIds] = useState<Set<string>>(new Set());
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <div className="max-w-6xl mx-auto px-6 py-16">
@@ -118,9 +121,32 @@ export default function Home() {
                   )}
 
                   <div className="mt-4 flex gap-2">
+                    {project.status === "completed" && !project.renderedVideoUrl && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setRenderingIds(prev => new Set(prev).add(project._id));
+                          try {
+                            await renderVideo({ projectId: project._id });
+                          } catch (error) {
+                            console.error("render error:", error);
+                          } finally {
+                            setRenderingIds(prev => {
+                              const next = new Set(prev);
+                              next.delete(project._id);
+                              return next;
+                            });
+                          }
+                        }}
+                        disabled={renderingIds.has(project._id)}
+                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm hover:shadow-lg transition-all disabled:opacity-50"
+                      >
+                        {renderingIds.has(project._id) ? "rendering..." : "render video"}
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
-                        e.preventDefault();
+                        e.stopPropagation();
                         simulateCompleted({ id: project._id });
                       }}
                       className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
@@ -129,7 +155,7 @@ export default function Home() {
                     </button>
                     <button
                       onClick={(e) => {
-                        e.preventDefault();
+                        e.stopPropagation();
                         deleteProject({ id: project._id });
                       }}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"

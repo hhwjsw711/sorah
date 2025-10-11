@@ -15,7 +15,8 @@ export default defineSchema({
       v.union(
         v.literal("processing"),
         v.literal("completed"),
-        v.literal("failed")
+        v.literal("failed"),
+        v.literal("rendering")
       )
     ),
     completedAt: v.optional(v.number()),
@@ -25,5 +26,6 @@ export default defineSchema({
     videoUrls: v.optional(v.array(v.string())),
     error: v.optional(v.string()),
     reelfulApiUrl: v.optional(v.string()),
+    renderedVideoUrl: v.optional(v.string()),
   }),
 });
