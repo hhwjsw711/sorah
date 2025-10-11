@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { Sandbox } from "@vercel/sandbox";
+import { Sandbox } from "e2b";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
@@ -26,100 +26,80 @@ export const renderVideo = action({
       }
       console.log("[render] project loaded, has audio:", !!project.audioUrl, "music:", !!project.musicUrl, "videos:", project.videoUrls?.length || 0);
 
-      console.log("[render] creating sandbox...");
-      const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-      if (!oidcToken) {
-        throw new Error("VERCEL_OIDC_TOKEN not set in convex environment variables");
+      console.log("[render] creating e2b sandbox...");
+      const apiKey = process.env.E2B_API_KEY;
+      if (!apiKey) {
+        throw new Error("E2B_API_KEY not set in convex environment variables");
       }
-      console.log("[render] using oidc token from env");
       
-      const sandbox = await Sandbox.create({
-        source: {
-          url: "https://github.com/caffeinum/remotion-template",
-          type: "git",
-        },
-        timeout: 600000,
-      });
+      const sandbox = await Sandbox.create({ apiKey });
       console.log("[render] sandbox created:", sandbox.sandboxId);
 
-      console.log("[render] installing dependencies...");
-      const install = await sandbox.runCommand({
-        cmd: "bun",
-        args: ["install"],
-      });
-      console.log("[render] install exit code:", install.exitCode);
+      console.log("[render] cloning remotion template...");
+      const cloneResult = await sandbox.commands.run("git clone https://github.com/caffeinum/remotion-template /home/user/remotion-template");
+      console.log("[render] clone result:", cloneResult.stdout);
+      if (cloneResult.exitCode !== 0) {
+        throw new Error(`git clone failed: ${cloneResult.stderr}`);
+      }
 
-      if (install.exitCode !== 0) {
-        console.error("[render] install stderr:", install.stderr);
-        throw new Error(`install failed: ${install.stderr}`);
+      console.log("[render] installing dependencies...");
+      const installResult = await sandbox.commands.run("bun install", { cwd: "/home/user/remotion-template" });
+      console.log("[render] install result:", installResult.stdout);
+      if (installResult.exitCode !== 0) {
+        throw new Error(`install failed: ${installResult.stderr}`);
       }
       console.log("[render] dependencies installed");
 
       console.log("[render] creating media directory...");
-      await sandbox.mkDir("./public/media");
+      await sandbox.commands.run("mkdir -p /home/user/remotion-template/public/media");
       console.log("[render] media directory created");
 
-      console.log("[render] preparing media files...");
-      const files: { path: string; content: Buffer }[] = [];
-
+      console.log("[render] uploading media files...");
       if (project.audioUrl) {
         console.log("[render] fetching audio from:", project.audioUrl);
         const audioResponse = await fetch(project.audioUrl);
-        const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-        console.log("[render] audio fetched, size:", audioBuffer.length);
-        files.push({ path: "./public/media/audio.mp3", content: audioBuffer });
+        const audioBuffer = await audioResponse.arrayBuffer();
+        console.log("[render] audio fetched, size:", audioBuffer.byteLength);
+        await sandbox.files.write("/home/user/remotion-template/public/media/audio.mp3", audioBuffer);
       }
 
       if (project.musicUrl) {
         console.log("[render] fetching music from:", project.musicUrl);
         const musicResponse = await fetch(project.musicUrl);
-        const musicBuffer = Buffer.from(await musicResponse.arrayBuffer());
-        console.log("[render] music fetched, size:", musicBuffer.length);
-        files.push({ path: "./public/media/music.mp3", content: musicBuffer });
+        const musicBuffer = await musicResponse.arrayBuffer();
+        console.log("[render] music fetched, size:", musicBuffer.byteLength);
+        await sandbox.files.write("/home/user/remotion-template/public/media/music.mp3", musicBuffer);
       }
 
       if (project.videoUrls) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           console.log(`[render] fetching video ${i} from:`, project.videoUrls[i]);
           const videoResponse = await fetch(project.videoUrls[i]);
-          const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
-          console.log(`[render] video ${i} fetched, size:`, videoBuffer.length);
-          files.push({ path: `./public/media/video${i}.mp4`, content: videoBuffer });
+          const videoBuffer = await videoResponse.arrayBuffer();
+          console.log(`[render] video ${i} fetched, size:`, videoBuffer.byteLength);
+          await sandbox.files.write(`/home/user/remotion-template/public/media/video${i}.mp4`, videoBuffer);
         }
       }
-
-      console.log("[render] uploading", files.length, "files to sandbox...");
-      await sandbox.writeFiles(files);
       console.log("[render] files uploaded");
 
       console.log("[render] running remotion render...");
-      const render = await sandbox.runCommand({
-        cmd: "bun",
-        args: ["remotion", "render"],
-      });
-      console.log("[render] render exit code:", render.exitCode);
-      console.log("[render] render stdout:", render.stdout);
-
-      if (render.exitCode !== 0) {
-        console.error("[render] render stderr:", render.stderr);
-        throw new Error(`render failed: ${render.stderr}`);
+      const renderResult = await sandbox.commands.run("bun remotion render", { cwd: "/home/user/remotion-template" });
+      console.log("[render] render stdout:", renderResult.stdout);
+      console.log("[render] render stderr:", renderResult.stderr);
+      
+      if (renderResult.exitCode !== 0) {
+        throw new Error(`render failed: ${renderResult.stderr}`);
       }
       console.log("[render] remotion render completed");
 
       console.log("[render] reading output video...");
-      const outputStream = await sandbox.readFile({ path: "./out/result.mp4" });
+      const outputVideo = await sandbox.files.read("/home/user/remotion-template/out/result.mp4");
       
-      if (!outputStream) {
+      if (!outputVideo) {
         throw new Error("output video not found");
       }
-
-      console.log("[render] streaming output video...");
-      const chunks: Buffer[] = [];
-      for await (const chunk of outputStream) {
-        chunks.push(Buffer.from(chunk));
-      }
-      const outputVideo = Buffer.concat(chunks);
-      console.log("[render] output video size:", outputVideo.length);
+      const outputSize = typeof outputVideo === 'string' ? outputVideo.length : (outputVideo as ArrayBuffer).byteLength;
+      console.log("[render] output video size:", outputSize);
 
       console.log("[render] uploading to convex storage...");
       const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
@@ -139,8 +119,8 @@ export const renderVideo = action({
         status: "completed",
       });
 
-      console.log("[render] stopping sandbox...");
-      await sandbox.stop();
+      console.log("[render] closing sandbox...");
+      await sandbox.kill();
 
       console.log("[render] render complete!");
       return { success: true, renderedVideoUrl };
