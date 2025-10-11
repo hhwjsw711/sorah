@@ -303,6 +303,15 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
             )}
 
+            {project.srtContent && (
+              <div className="border-t pt-6">
+                <p className="text-sm font-medium text-gray-700 mb-2">subtitles (SRT)</p>
+                <div className="p-4 bg-gray-50 rounded-lg max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-gray-800 font-mono whitespace-pre-wrap">{project.srtContent}</pre>
+                </div>
+              </div>
+            )}
+
             {(project.audioUrl || project.musicUrl || project.videoUrls) && (
               <div className="border-t pt-6">
                 <p className="text-sm font-medium text-gray-700 mb-1">generated media</p>
