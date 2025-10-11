@@ -90,6 +90,7 @@ export const updateProjectWithReelfulData = mutation({
     id: v.id("projects"),
     script: v.optional(v.string()),
     audioUrl: v.optional(v.string()),
+    srtContent: v.optional(v.string()),
     musicUrl: v.optional(v.string()),
     videoUrls: v.optional(v.array(v.string())),
     error: v.optional(v.string()),
@@ -97,13 +98,14 @@ export const updateProjectWithReelfulData = mutation({
   },
   handler: async (
     ctx,
-    { id, script, audioUrl, musicUrl, videoUrls, error, status }
+    { id, script, audioUrl, srtContent, musicUrl, videoUrls, error, status }
   ) => {
     await ctx.db.patch(id, {
       status,
       completedAt: Date.now(),
       script,
       audioUrl,
+      srtContent,
       musicUrl,
       videoUrls,
       error,
@@ -284,6 +286,7 @@ export const processProjectWithAI = action({
 
     let script: string | undefined;
     let audioUrl: string | null | undefined;
+    let srtContent: string | undefined;
     let musicUrl: string | null | undefined;
     let videoUrls: string[] = [];
 
@@ -320,6 +323,18 @@ export const processProjectWithAI = action({
       const voiceoverDuration = voiceoverResult.durationMs || 15000;
       console.log("[ai-process] voiceover uploaded:", audioUrl, "duration:", voiceoverDuration, "ms");
 
+      console.log("[ai-process] step 2.5: transcribing voiceover to SRT");
+      const transcribeResult = await ctx.runAction(api.aiServices.transcribeAudio, {
+        audioUrl: audioUrl,
+      });
+
+      if (transcribeResult.success && transcribeResult.srt) {
+        srtContent = transcribeResult.srt;
+        console.log("[ai-process] SRT generated, length:", srtContent.length, "chars");
+      } else {
+        console.log("[ai-process] SRT generation failed:", transcribeResult.error);
+      }
+
       console.log("[ai-process] step 3: generating background music");
       const adjustedMusicDuration = Math.floor(voiceoverDuration / 1.25);
       console.log("[ai-process] music duration (voiceover / 1.25):", adjustedMusicDuration, "ms");
@@ -354,6 +369,7 @@ export const processProjectWithAI = action({
         id: projectId,
         script,
         audioUrl: audioUrl || undefined,
+        srtContent: srtContent || undefined,
         musicUrl: musicUrl || undefined,
         videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
         status: "completed",
@@ -367,6 +383,7 @@ export const processProjectWithAI = action({
         id: projectId,
         script: script || undefined,
         audioUrl: audioUrl || undefined,
+        srtContent: undefined,
         musicUrl: musicUrl || undefined,
         videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
         error: error instanceof Error ? error.message : "ai processing failed",
@@ -408,6 +425,7 @@ export const regenerateScript = action({
         id: projectId,
         script: scriptResult.script,
         audioUrl: project.audioUrl,
+        srtContent: project.srtContent,
         musicUrl: project.musicUrl,
         videoUrls: project.videoUrls,
         status: "completed",
@@ -457,6 +475,7 @@ export const regenerateVoiceover = action({
         id: projectId,
         script: project.script,
         audioUrl: audioUrl || undefined,
+        srtContent: undefined,
         musicUrl: project.musicUrl,
         videoUrls: project.videoUrls,
         status: "completed",
@@ -512,6 +531,7 @@ export const regenerateAnimations = action({
         id: projectId,
         script: project.script,
         audioUrl: project.audioUrl,
+        srtContent: project.srtContent,
         musicUrl: project.musicUrl,
         videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
         status: "completed",
@@ -528,6 +548,7 @@ export const regenerateAnimations = action({
           id: projectId,
           script: project.script,
           audioUrl: project.audioUrl,
+        srtContent: project.srtContent,
           musicUrl: project.musicUrl,
           videoUrls: project.videoUrls,
           status: "completed",
@@ -571,6 +592,7 @@ export const regenerateMusic = action({
         id: projectId,
         script: project.script,
         audioUrl: project.audioUrl,
+        srtContent: project.srtContent,
         musicUrl: musicUrl || undefined,
         videoUrls: project.videoUrls,
         status: "completed",

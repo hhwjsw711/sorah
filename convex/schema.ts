@@ -22,6 +22,7 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
     script: v.optional(v.string()),
     audioUrl: v.optional(v.string()),
+    srtContent: v.optional(v.string()),
     musicUrl: v.optional(v.string()),
     videoUrls: v.optional(v.array(v.string())),
     error: v.optional(v.string()),
