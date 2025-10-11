@@ -320,19 +320,11 @@ export const processProjectWithAI = action({
       }
 
       audioUrl = voiceoverResult.audioUrl;
+      srtContent = voiceoverResult.srtContent;
       const voiceoverDuration = voiceoverResult.durationMs || 15000;
       console.log("[ai-process] voiceover uploaded:", audioUrl, "duration:", voiceoverDuration, "ms");
-
-      console.log("[ai-process] step 2.5: transcribing voiceover to SRT");
-      const transcribeResult = await ctx.runAction(api.aiServices.transcribeAudio, {
-        audioUrl: audioUrl,
-      });
-
-      if (transcribeResult.success && transcribeResult.srt) {
-        srtContent = transcribeResult.srt;
+      if (srtContent) {
         console.log("[ai-process] SRT generated, length:", srtContent.length, "chars");
-      } else {
-        console.log("[ai-process] SRT generation failed:", transcribeResult.error);
       }
 
       console.log("[ai-process] step 3: generating background music");

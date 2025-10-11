@@ -96,13 +96,64 @@ export const animateImage = action({
   },
 });
 
+function formatTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const millis = Math.floor((seconds % 1) * 1000);
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")},${String(millis).padStart(3, "0")}`;
+}
+
+function convertTimestampsToSRT(characters: string[], startTimes: number[], endTimes: number[]): string {
+  let srt = "";
+  let index = 1;
+  let currentWord = "";
+  let wordStartTime = 0;
+  let wordEndTime = 0;
+
+  for (let i = 0; i < characters.length; i++) {
+    const char = characters[i];
+    
+    if (char === " " || i === characters.length - 1) {
+      if (i === characters.length - 1 && char !== " ") {
+        currentWord += char;
+        wordEndTime = endTimes[i];
+      }
+      
+      if (currentWord.trim().length > 0) {
+        const startTime = formatTime(wordStartTime);
+        const endTime = formatTime(wordEndTime);
+        
+        srt += `${index}\n`;
+        srt += `${startTime} --> ${endTime}\n`;
+        srt += `${currentWord.trim()}\n\n`;
+        index++;
+      }
+      
+      currentWord = "";
+      if (i < characters.length - 1) {
+        wordStartTime = startTimes[i + 1];
+      }
+    } else {
+      if (currentWord === "") {
+        wordStartTime = startTimes[i];
+      }
+      currentWord += char;
+      wordEndTime = endTimes[i];
+    }
+  }
+
+  return srt;
+}
+
 export const generateVoiceover = action({
   args: {
     text: v.string(),
     voiceId: v.optional(v.string()),
   },
-  handler: async (ctx, { text, voiceId = "y3QRUmmVlCstT6DNbXg9" }): Promise<{ success: boolean; audioUrl?: string | null; durationMs?: number; error?: string }> => {
-    console.log("[voiceover] generating voiceover");
+  handler: async (ctx, { text, voiceId = "y3QRUmmVlCstT6DNbXg9" }): Promise<{ success: boolean; audioUrl?: string | null; durationMs?: number; srtContent?: string; error?: string }> => {
+    console.log("[voiceover] generating voiceover with timestamps");
     
     try {
       const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -114,10 +165,10 @@ export const generateVoiceover = action({
         apiKey,
       });
 
-      const audioStream = await client.textToSpeech.convert(voiceId, {
-        outputFormat: "mp3_44100_128",
+      const result = await client.textToSpeech.convertWithTimestamps(voiceId, {
         text,
         modelId: "eleven_multilingual_v2",
+        outputFormat: "mp3_44100_128",
         voiceSettings: {
           stability: 0.5,
           similarityBoost: 1.0,
@@ -126,27 +177,25 @@ export const generateVoiceover = action({
         },
       });
 
-      const chunks: Uint8Array[] = [];
-      const reader = audioStream.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
+      console.log("[voiceover] voiceover generated with timestamps");
       
-      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-      const audioBuffer = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        audioBuffer.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      console.log("[voiceover] voiceover generated, size:", audioBuffer.length);
+      const audioBuffer = Buffer.from(result.audioBase64, 'base64');
+      console.log("[voiceover] audio size:", audioBuffer.length);
       
       const bitrate = 128000;
       const durationMs = Math.floor((audioBuffer.length * 8 / bitrate) * 1000);
       console.log("[voiceover] estimated duration:", durationMs, "ms");
+      
+      let srtContent: string | undefined;
+      if (result.alignment) {
+        console.log("[voiceover] converting timestamps to SRT");
+        srtContent = convertTimestampsToSRT(
+          result.alignment.characters,
+          result.alignment.characterStartTimesSeconds,
+          result.alignment.characterEndTimesSeconds
+        );
+        console.log("[voiceover] SRT generated, length:", srtContent.length, "chars");
+      }
       
       const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const uploadResponse = await fetch(uploadUrl, {
@@ -158,7 +207,7 @@ export const generateVoiceover = action({
       const audioUrl = await ctx.storage.getUrl(storageId);
       
       console.log("[voiceover] voiceover uploaded to storage");
-      return { success: true, audioUrl, durationMs };
+      return { success: true, audioUrl, durationMs, srtContent };
     } catch (error) {
       console.error("[voiceover] error:", error);
       return {
