@@ -185,11 +185,17 @@ composition should be portrait!`;
       });
 
       console.log("[render] checking output directory...");
-      const lsResult = await sandbox.commands.run("ls -lah /home/user/out/");
+      const lsResult = await sandbox.commands.run("ls -lah /home/user/out/ 2>/dev/null || echo 'out directory not found'");
       console.log("[render] out directory contents:", lsResult.stdout);
 
       console.log("[render] reading output video...");
-      const outputVideo = await sandbox.files.read("/home/user/out/reelful.mp4");
+      let outputVideo;
+      try {
+        outputVideo = await sandbox.files.read("/home/user/out/reelful.mp4");
+      } catch (error) {
+        console.log("[render] output video not found:", error);
+        throw new Error("output video not found - claude may still be rendering or encountered an error");
+      }
       
       if (!outputVideo) {
         throw new Error("output video not found");
@@ -255,7 +261,7 @@ export const getSandboxInfo = action({
 
       const sandbox = await Sandbox.connect(sandboxId);
       
-      const lsResult = await sandbox.commands.run("ls -lah /home/user/out/");
+      const lsResult = await sandbox.commands.run("ls -lah /home/user/out/ 2>/dev/null || echo 'out directory not found'");
       const diskResult = await sandbox.commands.run("df -h /home/user");
       
       return {
