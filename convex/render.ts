@@ -197,6 +197,7 @@ composition should be portrait!`;
         { 
           cwd: "/home/user",
           timeoutMs: 600000,
+          requestTimeoutMs: 600000,
         }
       );
       console.log("[render] claude exit code:", claudeResult.exitCode);
