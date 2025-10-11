@@ -108,14 +108,17 @@ export const renderVideo = action({
         timeoutMs: 600000,
       });
       console.log("[render] render exit code:", renderResult.exitCode);
-      if (renderResult.exitCode !== 0) {
-        console.log("[render] render stderr:", renderResult.stderr);
-      }
+      console.log("[render] render stdout (last 500 chars):", renderResult.stdout.slice(-500));
       
       if (renderResult.exitCode !== 0) {
-        throw new Error(`render failed: ${renderResult.stderr}`);
+        console.log("[render] render stderr:", renderResult.stderr);
+        throw new Error(`render failed with exit code ${renderResult.exitCode}: ${renderResult.stderr}`);
       }
       console.log("[render] remotion render completed");
+
+      console.log("[render] checking output directory...");
+      const lsResult = await sandbox.commands.run("ls -lah /home/user/out/");
+      console.log("[render] out directory contents:", lsResult.stdout);
 
       console.log("[render] reading output video...");
       const outputVideo = await sandbox.files.read("/home/user/out/Main.mp4");
@@ -125,6 +128,10 @@ export const renderVideo = action({
       }
       const outputSize = typeof outputVideo === 'string' ? outputVideo.length : (outputVideo as ArrayBuffer).byteLength;
       console.log("[render] output video size:", outputSize);
+      
+      if (outputSize === 0 || outputSize < 1000) {
+        throw new Error(`output video is too small (${outputSize} bytes) - render likely failed`);
+      }
 
       console.log("[render] uploading to convex storage...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
