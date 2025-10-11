@@ -1,0 +1,10 @@
+tmux:
+  session: sorah
+  window: dev
+
+services:
+  frontend:
+    setup: bun install
+    command: bun run dev
+    cwd: .
+    port: 3000
