@@ -37,9 +37,9 @@ export const renderVideo = action({
         throw new Error("E2B_API_KEY not set in convex environment variables");
       }
       
-      const claudeToken = process.env.ANTHROPIC_AUTH_TOKEN;
+      const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
       if (!claudeToken) {
-        throw new Error("ANTHROPIC_AUTH_TOKEN not set in convex environment variables");
+        throw new Error("CLAUDE_CODE_OAUTH_TOKEN not set in convex environment variables");
       }
       
       const sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
@@ -56,7 +56,7 @@ export const renderVideo = action({
       });
       
       const claudeResult = await sandbox.commands.run(
-        `export ANTHROPIC_AUTH_TOKEN="${claudeToken}" && claude --print "${project.prompt || 'optimize the remotion video template'}"`,
+        `export CLAUDE_CODE_OAUTH_TOKEN="${claudeToken}" && claude --print "${project.prompt || 'optimize the remotion video template'}"`,
         { 
           cwd: "/home/user",
           timeoutMs: 120000,
