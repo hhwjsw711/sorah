@@ -65,11 +65,20 @@ export const renderVideo = action({
         details: "transferring files to sandbox",
       });
       
+      if (project.audioUrl && project.audioUrl.includes("example.com")) {
+        throw new Error("Cannot render with simulated/example.com URLs. Please run AI processing first to generate real media files.");
+      }
+      
       if (project.audioUrl) {
         console.log("[render] fetching audio from:", project.audioUrl);
         const audioResponse = await fetch(project.audioUrl);
         const audioBuffer = await audioResponse.arrayBuffer();
         console.log("[render] audio fetched, size:", audioBuffer.byteLength);
+        
+        if (audioBuffer.byteLength < 1000) {
+          throw new Error(`Audio file is too small (${audioBuffer.byteLength} bytes). This likely means the URL is invalid or returns an error page.`);
+        }
+        
         await sandbox.files.write("/home/user/public/media/audio.mp3", audioBuffer);
       }
 
