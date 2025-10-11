@@ -27,6 +27,12 @@ export const renderVideo = action({
       console.log("[render] project loaded, has audio:", !!project.audioUrl, "music:", !!project.musicUrl, "videos:", project.videoUrls?.length || 0);
 
       console.log("[render] creating sandbox...");
+      const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+      if (!oidcToken) {
+        throw new Error("VERCEL_OIDC_TOKEN not set in convex environment variables");
+      }
+      console.log("[render] using oidc token from env");
+      
       const sandbox = await Sandbox.create({
         source: {
           url: "https://github.com/caffeinum/remotion-template",
