@@ -224,7 +224,7 @@ composition should be portrait!`;
       console.log("[render] reading output video...");
       let outputVideo;
       try {
-        outputVideo = await sandbox.files.read("/home/user/out/reelful.mp4");
+        outputVideo = await sandbox.files.read("/home/user/out/Main.mp4");
       } catch (error) {
         console.log("[render] output video not found:", error);
         throw new Error("output video not found - claude may still be rendering or encountered an error");
