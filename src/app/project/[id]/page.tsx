@@ -251,16 +251,16 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 </div>
 
                 <div className={`flex items-center gap-3 p-4 rounded-lg ${
-                  project.videoUrls && project.videoUrls.length > 0 ? "bg-green-50" : project.musicUrl ? "bg-yellow-50 animate-pulse" : "bg-gray-50"
+                  project.videoUrls && project.videoUrls.length > 0 ? "bg-green-50" : (project.musicUrl && project.status === "processing") ? "bg-yellow-50 animate-pulse" : "bg-gray-50"
                 }`}>
                   <div className={`text-2xl ${project.videoUrls && project.videoUrls.length > 0 ? "opacity-100" : "opacity-30"}`}>
-                    {project.videoUrls && project.videoUrls.length > 0 ? "✓" : project.musicUrl ? "⏳" : "○"}
+                    {project.videoUrls && project.videoUrls.length > 0 ? "✓" : (project.musicUrl && project.status === "processing") ? "⏳" : "○"}
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-gray-800">5. animate images</p>
                     <p className="text-sm text-gray-600">generating 3-second videos from images using fal ai</p>
                   </div>
-                  {project.videoUrls && project.videoUrls.length > 0 && (
+                  {(project.musicUrl || (project.videoUrls && project.videoUrls.length > 0)) && project.status !== "processing" && (
                     <button
                       onClick={async () => {
                         setRegeneratingAnimations(true);
