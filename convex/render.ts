@@ -41,19 +41,20 @@ export const renderVideo = action({
       const sandbox = await Sandbox.create("8r14p0kvwebvpgno5hia", { apiKey });
       console.log("[render] sandbox created:", sandbox.sandboxId);
 
-      console.log("[render] creating media directory...");
+      console.log("[render] creating media directories...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
         step: "preparing environment",
         details: "setting up media directories",
       });
       
-      await sandbox.commands.run("mkdir -p /home/user/public/media");
-      console.log("[render] media directory created");
+      await sandbox.commands.run("mkdir -p /home/user/public/media /home/user/public/reelful");
+      console.log("[render] media directories created");
       
-      console.log("[render] creating empty subtitles file...");
+      console.log("[render] creating placeholder files...");
+      await sandbox.files.write("/home/user/public/reelful-fast.srt", "");
       await sandbox.files.write("/home/user/public/media/subtitles.srt", "");
-      console.log("[render] subtitles file created");
+      console.log("[render] placeholder files created");
 
       console.log("[render] uploading media files...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
@@ -78,13 +79,17 @@ export const renderVideo = action({
         await sandbox.files.write("/home/user/public/media/music.mp3", musicBuffer);
       }
 
-      if (project.videoUrls) {
+      if (project.videoUrls && project.videoUrls.length > 0) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           console.log(`[render] fetching video ${i} from:`, project.videoUrls[i]);
           const videoResponse = await fetch(project.videoUrls[i]);
           const videoBuffer = await videoResponse.arrayBuffer();
           console.log(`[render] video ${i} fetched, size:`, videoBuffer.byteLength);
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
+          
+          if (i === 0) {
+            await sandbox.files.write(`/home/user/public/reelful/video_2025-10-10_18-12-33%20(2).mp4`, videoBuffer);
+          }
         }
       }
       console.log("[render] files uploaded");
