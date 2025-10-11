@@ -35,5 +35,6 @@ export default defineSchema({
         timestamp: v.number(),
       })
     ),
+    sandboxId: v.optional(v.string()),
   }),
 });

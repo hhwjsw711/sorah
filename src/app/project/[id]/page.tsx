@@ -17,11 +17,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const regenerateVoiceover = useAction(api.tasks.regenerateVoiceover);
   const regenerateMusic = useAction(api.tasks.regenerateMusic);
   const regenerateAnimations = useAction(api.tasks.regenerateAnimations);
+  const getSandboxInfo = useAction(api.render.getSandboxInfo);
   const [rendering, setRendering] = useState(false);
   const [regeneratingScript, setRegeneratingScript] = useState(false);
   const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
   const [regeneratingMusic, setRegeneratingMusic] = useState(false);
   const [regeneratingAnimations, setRegeneratingAnimations] = useState(false);
+  const [sandboxInfo, setSandboxInfo] = useState<{ outDirectory?: string; diskUsage?: string; error?: string } | null>(null);
+  const [loadingSandbox, setLoadingSandbox] = useState(false);
 
   if (!project) {
     return (
@@ -353,6 +356,51 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   <div className="mt-2 text-xs text-blue-600">
                     last updated: {new Date(project.renderProgress.timestamp).toLocaleTimeString()}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {project.sandboxId && (
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-gray-700">sandbox info</p>
+                  <button
+                    onClick={async () => {
+                      setLoadingSandbox(true);
+                      try {
+                        const result = await getSandboxInfo({ sandboxId: project.sandboxId! });
+                        setSandboxInfo(result as { outDirectory?: string; diskUsage?: string; error?: string });
+                      } finally {
+                        setLoadingSandbox(false);
+                      }
+                    }}
+                    disabled={loadingSandbox}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    {loadingSandbox ? "loading..." : "refresh"}
+                  </button>
+                </div>
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm space-y-2">
+                  <p className="font-mono text-xs text-gray-600">id: {project.sandboxId}</p>
+                  {sandboxInfo && !sandboxInfo.error && (
+                    <>
+                      {sandboxInfo.outDirectory && (
+                        <div>
+                          <p className="font-semibold text-gray-700 mb-1">out/ directory:</p>
+                          <pre className="bg-white p-2 rounded border border-gray-300 text-xs overflow-x-auto">{sandboxInfo.outDirectory}</pre>
+                        </div>
+                      )}
+                      {sandboxInfo.diskUsage && (
+                        <div>
+                          <p className="font-semibold text-gray-700 mb-1">disk usage:</p>
+                          <pre className="bg-white p-2 rounded border border-gray-300 text-xs overflow-x-auto">{sandboxInfo.diskUsage}</pre>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {sandboxInfo?.error && (
+                    <p className="text-red-600 text-xs">{sandboxInfo.error}</p>
+                  )}
                 </div>
               </div>
             )}

@@ -1,6 +1,6 @@
 "use node";
 
-import { action } from "./_generated/server";
+import { action, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Sandbox } from "e2b";
 import { api } from "./_generated/api";
@@ -50,6 +50,11 @@ export const renderVideo = action({
         },
       });
       console.log("[render] sandbox created:", sandbox.sandboxId);
+
+      await ctx.runMutation(api.tasks.updateProjectSandbox, {
+        id: projectId,
+        sandboxId: sandbox.sandboxId,
+      });
 
       console.log("[render] running claude code to edit video...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
@@ -233,6 +238,36 @@ composition should be portrait!`;
       return {
         success: false,
         error: error instanceof Error ? error.message : "render failed",
+      };
+    }
+  },
+});
+
+export const getSandboxInfo = action({
+  args: {
+    sandboxId: v.string(),
+  },
+  handler: async (ctx, { sandboxId }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId);
+      
+      const lsResult = await sandbox.commands.run("ls -lah /home/user/out/");
+      const diskResult = await sandbox.commands.run("df -h /home/user");
+      
+      return {
+        success: true,
+        sandboxId: sandbox.sandboxId,
+        outDirectory: lsResult.stdout,
+        diskUsage: diskResult.stdout,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to connect to sandbox",
       };
     }
   },

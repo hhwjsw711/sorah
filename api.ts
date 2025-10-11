@@ -88,6 +88,12 @@ export type PublicApiType = {
       { details?: string; id: Id<"projects">; step: string },
       any
     >;
+    updateProjectSandbox: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"projects">; sandboxId: string },
+      any
+    >;
     simulateCompleted: FunctionReference<
       "mutation",
       "public",
@@ -132,6 +138,12 @@ export type PublicApiType = {
     >;
   };
   render: {
+    getSandboxInfo: FunctionReference<
+      "action",
+      "public",
+      { sandboxId: string },
+      any
+    >;
     renderVideo: FunctionReference<
       "action",
       "public",

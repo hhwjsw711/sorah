@@ -178,6 +178,17 @@ export const updateRenderProgress = mutation({
   },
 });
 
+export const updateProjectSandbox = mutation({
+  args: {
+    id: v.id("projects"),
+    sandboxId: v.string(),
+  },
+  handler: async (ctx, { id, sandboxId }) => {
+    await ctx.db.patch(id, { sandboxId });
+    return id;
+  },
+});
+
 export const simulateCompleted = mutation({
   args: {
     id: v.id("projects"),
