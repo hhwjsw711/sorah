@@ -331,7 +331,7 @@ export const processProjectWithAI = action({
         });
 
         if (animateResult.success && animateResult.data) {
-          const videoUrl = (animateResult.data as any).video?.url;
+          const videoUrl = (animateResult.data).video?.url;
           if (videoUrl) {
             videoUrls.push(videoUrl);
             console.log(`[ai-process] animated image ${i + 1}`);
@@ -443,7 +443,7 @@ export const regenerateVoiceover = action({
         body: voiceoverResult.audio,
       });
       const { storageId: audioStorageId } = await voiceoverUpload.json();
-      const audioUrl = await ctx.storage.getUrl(audioStorageId);
+      const audioUrl = await ctx.storage.getUrl(audioStorageId as Id<"_storage">);
       console.log("[regenerate-voiceover] voiceover uploaded");
 
       await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
@@ -493,7 +493,7 @@ export const regenerateAnimations = action({
         });
 
         if (animateResult.success && animateResult.data) {
-          const videoUrl = (animateResult.data as any).video?.url;
+          const videoUrl = (animateResult.data).video?.url;
           if (videoUrl) {
             videoUrls.push(videoUrl);
             console.log(`[regenerate-animations] animated image ${i + 1}`);
