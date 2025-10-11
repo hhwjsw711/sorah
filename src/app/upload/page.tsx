@@ -16,7 +16,7 @@ export default function Upload() {
   
   const generateUploadUrl = useMutation(api.tasks.generateUploadUrl);
   const createProject = useMutation(api.tasks.createProject);
-  const processProjectWithReelful = useAction(api.tasks.processProjectWithReelful);
+  const processProjectWithAI = useAction(api.tasks.processProjectWithAI);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,16 +55,12 @@ export default function Upload() {
       });
       console.log("created project:", newProjectId);
 
-      const reelfulApiUrl = process.env.NEXT_PUBLIC_REELFUL_API_URL;
-      if (reelfulApiUrl) {
-        console.log("triggering reelful api...");
-        processProjectWithReelful({
-          projectId: newProjectId,
-          reelfulApiUrl,
-        }).catch((error) => {
-          console.error("reelful api error:", error);
-        });
-      }
+      console.log("triggering ai processing...");
+      processProjectWithAI({
+        projectId: newProjectId,
+      }).catch((error) => {
+        console.error("ai processing error:", error);
+      });
       
       router.push(`/project/${newProjectId}`);
     } catch (error) {

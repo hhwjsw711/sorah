@@ -10,7 +10,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.48",
+    "@elevenlabs/elevenlabs-js": "^2.18.0",
+    "@fal-ai/client": "^1.6.2",
     "@vercel/sandbox": "^0.0.23",
+    "ai": "^5.0.68",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.27.5",
@@ -18,10 +22,12 @@
     "e2b": "^2.2.7",
     "lucide-react": "^0.545.0",
     "next": "15.5.4",
+    "openai": "^6.3.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "remotion": "^4.0.357",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

@@ -275,46 +275,91 @@ export const processProjectWithReelful = action({
   },
 });
 
-export const transcribeMedia = action({
+export const processProjectWithAI = action({
   args: {
-    storageId: v.id("_storage"),
+    projectId: v.id("projects"),
   },
-  handler: async (ctx, { storageId }) => {
-    console.log("[transcribe] starting transcription for:", storageId);
+  handler: async (ctx, { projectId }) => {
+    console.log("[ai-process] starting ai processing for project:", projectId);
 
     try {
-      const url = await ctx.storage.getUrl(storageId);
-      if (!url) {
-        throw new Error("failed to get storage url");
+      const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+      if (!project) {
+        throw new Error("project not found");
       }
 
-      console.log("[transcribe] fetching media from storage:", url);
-      const mediaResponse = await fetch(url);
-      const mediaBlob = await mediaResponse.blob();
-      console.log("[transcribe] media fetched, size:", mediaBlob.size);
-
-      console.log("[transcribe] uploading to transcription service...");
-      const formData = new FormData();
-      formData.append("file", mediaBlob, "media.mp4");
-
-      const transcribeResponse = await fetch("https://reels-srt.vercel.app/api/fireworks", {
-        method: "POST",
-        body: formData,
+      console.log("[ai-process] step 1: generating script");
+      const imageUrls = project.fileUrls?.filter((url): url is string => url !== null) || [];
+      const scriptResult = await ctx.runAction(api.aiServices.generateScript, {
+        prompt: project.prompt,
+        imageUrls,
       });
 
-      if (!transcribeResponse.ok) {
-        throw new Error(`transcription failed: ${transcribeResponse.statusText}`);
+      if (!scriptResult.success) {
+        throw new Error(`script generation failed: ${scriptResult.error}`);
       }
 
-      const srtText = await transcribeResponse.text();
-      console.log("[transcribe] transcription complete, length:", srtText.length);
+      const script = scriptResult.script!;
+      console.log("[ai-process] script generated:", script);
 
-      return { success: true, srt: srtText };
+      console.log("[ai-process] step 2: generating voiceover");
+      const voiceoverResult = await ctx.runAction(api.aiServices.generateVoiceover, {
+        text: script,
+      });
+
+      if (!voiceoverResult.success) {
+        throw new Error(`voiceover generation failed: ${voiceoverResult.error}`);
+      }
+
+      const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const voiceoverUpload = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "audio/mp3" },
+        body: voiceoverResult.audio,
+      });
+      const { storageId: audioStorageId } = await voiceoverUpload.json();
+      const audioUrl = await ctx.storage.getUrl(audioStorageId);
+      console.log("[ai-process] voiceover uploaded:", audioUrl);
+
+      console.log("[ai-process] step 3: animating images");
+      const videoUrls: string[] = [];
+      for (let i = 0; i < Math.min(imageUrls.length, 3); i++) {
+        console.log(`[ai-process] animating image ${i + 1}/${imageUrls.length}`);
+        const animateResult = await ctx.runAction(api.aiServices.animateImage, {
+          imageUrl: imageUrls[i],
+        });
+
+        if (animateResult.success && animateResult.data) {
+          const videoUrl = (animateResult.data as any).video?.url;
+          if (videoUrl) {
+            videoUrls.push(videoUrl);
+            console.log(`[ai-process] animated image ${i + 1}`);
+          }
+        }
+      }
+
+      await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+        id: projectId,
+        script,
+        audioUrl: audioUrl || undefined,
+        musicUrl: undefined,
+        videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
+        status: "completed",
+      });
+
+      console.log("[ai-process] ai processing complete");
+      return { success: true };
     } catch (error) {
-      console.error("[transcribe] error:", error);
+      console.error("[ai-process] error:", error);
+      await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+        id: projectId,
+        error: error instanceof Error ? error.message : "ai processing failed",
+        status: "failed",
+      });
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : "transcription failed",
+        error: error instanceof Error ? error.message : "ai processing failed",
       };
     }
   },
