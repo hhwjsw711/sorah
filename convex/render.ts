@@ -226,18 +226,22 @@ composition should be portrait!`;
         `bun remotion render`,
         { 
           cwd: "/home/user",
-          timeoutMs: 600000,
-          requestTimeoutMs: 600000,
+          timeoutMs: 3600000,
+          requestTimeoutMs: 3600000,
         }
       );
 
       const progressInterval = setInterval(async () => {
-        const psResult = await sandbox.commands.run(
-          `ps aux | grep "remotion render" | grep -v grep || echo "process not found"`,
-          { timeoutMs: 5000 }
-        );
-        console.log("[render] remotion process check:", psResult.stdout);
-      }, 10000);
+        try {
+          const psResult = await sandbox.commands.run(
+            `ps aux | grep "remotion render" | grep -v grep || echo "process not found"`,
+            { timeoutMs: 30000 }
+          );
+          console.log("[render] remotion process check:", psResult.stdout);
+        } catch (error) {
+          console.log("[render] progress check failed:", error);
+        }
+      }, 30000);
 
       const remotionResult = await renderProcess;
       clearInterval(progressInterval);
