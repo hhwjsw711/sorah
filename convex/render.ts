@@ -554,7 +554,7 @@ export const createSequence = action({
   args: {
     projectId: v.id("projects"),
   },
-  handler: async (ctx, { projectId }) => {
+  handler: async (ctx, { projectId }): Promise<{ success: boolean; sandboxId?: string; error?: string }> => {
     console.log("[sequence] starting sequence creation for project:", projectId);
     
     try {
@@ -696,7 +696,7 @@ export const renderFinalVideo = action({
   args: {
     projectId: v.id("projects"),
   },
-  handler: async (ctx, { projectId }) => {
+  handler: async (ctx, { projectId }): Promise<{ success: boolean; renderedVideoUrl?: string | null; error?: string }> => {
     console.log("[render-final] starting final render for project:", projectId);
     
     try {
