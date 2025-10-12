@@ -30,6 +30,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const step4RenderSequence = useAction(api.render.step4RenderSequence);
   const updateRenderStep = useMutation(api.tasks.updateRenderStep);
   const getPipelineStatus = useAction(api.render.getPipelineStatus);
+  const animateImage = useAction(api.aiServices.animateImage);
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
   const readSandboxFile = useAction(api.render.readSandboxFile);
@@ -68,6 +69,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     sequenceCreated: boolean;
     videoRendered: boolean;
   } | null>(null);
+  const [animatingImageUrl, setAnimatingImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (isEditingScript) return;
@@ -268,7 +270,30 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                         {hasInputMedia ? (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {project.fileUrls?.map((url, i) =>
-                              url ? <MediaFileCard key={`file-${i}`} url={url} index={i} /> : null
+                              url ? (
+                                <MediaFileCard 
+                                  key={`file-${i}`} 
+                                  url={url} 
+                                  index={i}
+                                  isAnimating={animatingImageUrl === url}
+                                  onAnimate={async (imageUrl) => {
+                                    setAnimatingImageUrl(imageUrl);
+                                    try {
+                                      const result = await animateImage({ imageUrl });
+                                      if (result.success && result.data?.video?.url) {
+                                        alert(`animation created! url: ${result.data.video.url}`);
+                                      } else {
+                                        alert('animation failed');
+                                      }
+                                    } catch (error) {
+                                      console.error('animate error:', error);
+                                      alert('animation failed');
+                                    } finally {
+                                      setAnimatingImageUrl(null);
+                                    }
+                                  }}
+                                />
+                              ) : null
                             )}
                             {project.musicUrl && (
                               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -294,6 +319,52 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                           </div>
                         )}
                       </div>
+
+                      {(project.videoUrls?.length || 0) > 0 && (
+                        <div className="border-t pt-6">
+                          <p className="text-sm font-medium text-gray-700 mb-1">generated media</p>
+                          <p className="text-xs text-gray-500 mb-3">ai-animated videos from images</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {project.videoUrls?.map((url, i) => (
+                              <div key={i} className="relative group">
+                                <div className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                                  <div 
+                                    className="w-full h-20 bg-pink-100 rounded mb-2 overflow-hidden"
+                                    onMouseEnter={(e) => {
+                                      const video = e.currentTarget.querySelector('video');
+                                      if (video) video.play();
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      const video = e.currentTarget.querySelector('video');
+                                      if (video) {
+                                        video.pause();
+                                        video.currentTime = 0;
+                                      }
+                                    }}
+                                  >
+                                    <video 
+                                      src={url}
+                                      className="w-full h-full object-cover"
+                                      muted
+                                      loop
+                                    />
+                                  </div>
+                                  <p className="text-xs font-medium text-pink-900">video {i + 1}</p>
+                                  <p className="text-xs text-pink-600">🎬 animated</p>
+                                </div>
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="absolute inset-0 bg-pink-600/90 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm font-medium"
+                                >
+                                  view full
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {(project.videoUrls?.length || 0) > 0 && (
                         <div className="border-t pt-6">
