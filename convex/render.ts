@@ -45,17 +45,21 @@ export const renderVideo = action({
         });
         
         try {
-          sandbox = await Sandbox.connect(project.sandboxId);
+          sandbox = await Sandbox.connect(project.sandboxId, {
+            timeoutMs: 3600000,
+          });
           console.log("[render] connected to existing sandbox");
         } catch (error) {
           console.log("[render] failed to connect to existing sandbox, creating new one:", error);
+
           sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
             autoPause: true,
-            timeoutMs: 900000,
+            timeoutMs: 3600000,
             envs: {
               CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
             },
           });
+
           console.log("[render] new sandbox created:", sandbox.sandboxId);
           
           await ctx.runMutation(api.tasks.updateProjectSandbox, {
@@ -73,7 +77,7 @@ export const renderVideo = action({
         
         sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
           autoPause: true,
-          timeoutMs: 900000,
+          timeoutMs: 3600000,
           envs: {
             CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
           },
