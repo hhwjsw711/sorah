@@ -575,6 +575,32 @@ export const regenerateVoiceover = action({
   },
 });
 
+export const addAnimatedVideo = action({
+  args: {
+    projectId: v.id("projects"),
+    videoUrl: v.string(),
+  },
+  handler: async (ctx, { projectId, videoUrl }) => {
+    const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+    if (!project) throw new Error("project not found");
+
+    const currentVideoUrls = project.videoUrls || [];
+    const updatedVideoUrls = [...currentVideoUrls, videoUrl];
+
+    await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+      id: projectId,
+      script: project.script,
+      audioUrl: project.audioUrl,
+      srtContent: project.srtContent,
+      musicUrl: project.musicUrl,
+      videoUrls: updatedVideoUrls,
+      status: project.status === "rendering" ? "completed" : (project.status || "completed"),
+    });
+
+    return { success: true };
+  },
+});
+
 export const regenerateAnimations = action({
   args: {
     projectId: v.id("projects"),

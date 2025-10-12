@@ -31,6 +31,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const updateRenderStep = useMutation(api.tasks.updateRenderStep);
   const getPipelineStatus = useAction(api.render.getPipelineStatus);
   const animateImage = useAction(api.aiServices.animateImage);
+  const addAnimatedVideo = useAction(api.tasks.addAnimatedVideo);
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
   const readSandboxFile = useAction(api.render.readSandboxFile);
@@ -281,7 +282,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                     try {
                                       const result = await animateImage({ imageUrl });
                                       if (result.success && result.data?.video?.url) {
-                                        alert(`animation created! url: ${result.data.video.url}`);
+                                        await addAnimatedVideo({ 
+                                          projectId: id as Id<"projects">,
+                                          videoUrl: result.data.video.url 
+                                        });
                                       } else {
                                         alert('animation failed');
                                       }
