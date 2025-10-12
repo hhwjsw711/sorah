@@ -460,4 +460,39 @@ export const getSandboxFileDownloadUrl = action({
   },
 });
 
+export const downloadSandboxFolder = action({
+  args: {
+    sandboxId: v.string(),
+    folderPath: v.string(),
+  },
+  handler: async (ctx, { sandboxId, folderPath }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId);
+      
+      const result = await sandbox.commands.run(
+        `cd ${folderPath} && zip -r /tmp/folder.zip . && base64 /tmp/folder.zip`,
+        { timeoutMs: 60000 }
+      );
+      
+      if (result.exitCode !== 0) {
+        throw new Error(`failed to create archive: ${result.stderr}`);
+      }
+      
+      return {
+        success: true,
+        base64Content: result.stdout.trim(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to download folder",
+      };
+    }
+  },
+});
+
 

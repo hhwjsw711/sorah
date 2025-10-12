@@ -22,6 +22,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
   const readSandboxFile = useAction(api.render.readSandboxFile);
   const getSandboxFileDownloadUrl = useAction(api.render.getSandboxFileDownloadUrl);
+  const downloadSandboxFolder = useAction(api.render.downloadSandboxFolder);
   const [rendering, setRendering] = useState(false);
   const [regeneratingScript, setRegeneratingScript] = useState(false);
   const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
@@ -403,21 +404,48 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               <div className="border-t pt-6">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-medium text-gray-700">sandbox info</p>
-                  <button
-                    onClick={async () => {
-                      setLoadingSandbox(true);
-                      try {
-                        const result = await getSandboxInfo({ sandboxId: project.sandboxId! });
-                        setSandboxInfo(result as { outDirectory?: string; diskUsage?: string; error?: string });
-                      } finally {
-                        setLoadingSandbox(false);
-                      }
-                    }}
-                    disabled={loadingSandbox}
-                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  >
-                    {loadingSandbox ? "loading..." : "refresh"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        setLoadingSandbox(true);
+                        try {
+                          const result = await getSandboxInfo({ sandboxId: project.sandboxId! });
+                          setSandboxInfo(result as { outDirectory?: string; diskUsage?: string; error?: string });
+                        } finally {
+                          setLoadingSandbox(false);
+                        }
+                      }}
+                      disabled={loadingSandbox}
+                      className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                    >
+                      {loadingSandbox ? "loading..." : "refresh"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const result = await downloadSandboxFolder({ 
+                          sandboxId: project.sandboxId!, 
+                          folderPath: "/home/user" 
+                        });
+                        if (result.success && "base64Content" in result) {
+                          const binaryString = atob(result.base64Content || "");
+                          const bytes = new Uint8Array(binaryString.length);
+                          for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                          }
+                          const blob = new Blob([bytes], { type: "application/zip" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "sandbox.zip";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      }}
+                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                    >
+                      download zip
+                    </button>
+                  </div>
                 </div>
                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm space-y-2">
                   <p className="font-mono text-xs text-gray-600">id: {project.sandboxId}</p>
