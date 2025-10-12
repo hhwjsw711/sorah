@@ -1161,6 +1161,7 @@ export const step4RenderSequence = action({
 
       const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
 
+      console.log("[step4] running bun remotion render...");
       const remotionResult = await sandbox.commands.run(`bun remotion render`, {
         cwd: "/home/user",
         timeoutMs: 3600000,
@@ -1171,6 +1172,7 @@ export const step4RenderSequence = action({
         throw new Error(`remotion render failed: ${remotionResult.stderr}`);
       }
 
+      console.log("[step4] checking output video...");
       const videoPath = "/home/user/out/Main.mp4";
       const statResult = await sandbox.commands.run(`stat "${videoPath}" 2>&1`);
       if (statResult.exitCode !== 0) {
@@ -1183,6 +1185,34 @@ export const step4RenderSequence = action({
       if (outputSize < 1000) {
         throw new Error(`output video too small (${outputSize} bytes)`);
       }
+
+      console.log("[step4] downloading video from sandbox...");
+      const downloadUrl = await sandbox.downloadUrl(videoPath, { useSignatureExpiration: 300000 });
+      const videoResponse = await fetch(downloadUrl);
+      
+      if (!videoResponse.ok) {
+        throw new Error(`failed to download video: ${videoResponse.statusText}`);
+      }
+      
+      const videoBuffer = await videoResponse.arrayBuffer();
+      console.log("[step4] video downloaded, size:", videoBuffer.byteLength);
+
+      console.log("[step4] uploading to convex storage...");
+      const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const uploadResponse: Response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "video/mp4" },
+        body: videoBuffer,
+      });
+      const { storageId }: { storageId: Id<"_storage"> } = await uploadResponse.json();
+      const renderedVideoUrl: string | null = await ctx.storage.getUrl(storageId);
+      
+      console.log("[step4] updating project with rendered video url...");
+      await ctx.runMutation(api.tasks.updateProjectWithRenderResult, {
+        id: projectId,
+        renderedVideoUrl: renderedVideoUrl || undefined,
+        status: "completed",
+      });
 
       await ctx.runMutation(api.tasks.updateRenderStep, {
         id: projectId,
