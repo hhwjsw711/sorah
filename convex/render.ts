@@ -214,7 +214,42 @@ composition should be portrait!`;
         throw new Error(`claude video editing failed: ${claudeResult.stderr}`);
       }
 
-      console.log("[render] claude has completed rendering, checking output...");
+      console.log("[render] claude completed, now running remotion render...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "rendering video",
+        details: "running bun remotion render",
+      });
+
+      const renderProcess = sandbox.commands.run(
+        `bun remotion render`,
+        { 
+          cwd: "/home/user",
+          timeoutMs: 600000,
+          requestTimeoutMs: 600000,
+        }
+      );
+
+      const progressInterval = setInterval(async () => {
+        const psResult = await sandbox.commands.run(
+          `ps aux | grep "remotion render" | grep -v grep || echo "process not found"`,
+          { timeoutMs: 5000 }
+        );
+        console.log("[render] remotion process check:", psResult.stdout);
+      }, 10000);
+
+      const remotionResult = await renderProcess;
+      clearInterval(progressInterval);
+
+      console.log("[render] remotion exit code:", remotionResult.exitCode);
+      console.log("[render] remotion stdout:", remotionResult.stdout);
+      
+      if (remotionResult.exitCode !== 0) {
+        console.log("[render] remotion failed:", remotionResult.stderr);
+        throw new Error(`remotion render failed: ${remotionResult.stderr}`);
+      }
+
+      console.log("[render] remotion completed, checking output...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
         step: "finalizing video",
