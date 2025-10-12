@@ -135,29 +135,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               <p className="text-sm font-medium text-gray-700 mb-2">created</p>
               <p className="text-gray-600 text-sm">{new Date(project.createdAt).toLocaleString()}</p>
             </div>
-
-            {project.fileUrls && project.fileUrls.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-6">uploaded files ({project.fileUrls.length})</p>
-                <DisplayCards
-                  cards={project.fileUrls.slice(0, 3).filter((url): url is string => url !== null).map((url, i) => ({
-                    icon: <FileImage className="size-4 text-purple-300" />,
-                    title: `image ${i + 1}`,
-                    description: "ready for processing",
-                    date: new Date(project.createdAt).toLocaleDateString(),
-                    titleClassName: "text-purple-500",
-                    mediaUrl: url,
-                    mediaType: "image" as const,
-                    className: i === 0 
-                      ? "[grid-area:stack] hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0"
-                      : i === 1
-                      ? "[grid-area:stack] translate-x-16 translate-y-10 hover:-translate-y-1 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0"
-                      : "[grid-area:stack] translate-x-32 translate-y-20 hover:translate-y-10",
-                  }))}
-                />
-              </div>
-            )}
-
             {(project.audioUrl || project.musicUrl || project.videoUrls) && (
               <div className="border-t pt-6">
                 <p className="text-sm font-medium text-gray-700 mb-3">media files for rendering</p>
