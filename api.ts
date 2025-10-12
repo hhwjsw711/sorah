@@ -17,6 +17,12 @@ export type PublicApiType = {
       "mutation",
       "public",
       {
+        fileMetadata?: Array<{
+          contentType: string;
+          filename: string;
+          size: number;
+          storageId: Id<"_storage">;
+        }>;
         files: Array<Id<"_storage">>;
         prompt: string;
         thumbnail?: Id<"_storage">;
@@ -69,6 +75,12 @@ export type PublicApiType = {
         id: Id<"projects">;
         status: "processing" | "completed" | "failed" | "rendering";
       },
+      any
+    >;
+    updateProjectScript: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"projects">; script: string },
       any
     >;
     updateProjectWithRenderResult: FunctionReference<
@@ -136,8 +148,49 @@ export type PublicApiType = {
       { projectId: Id<"projects"> },
       any
     >;
+    updateRenderStep: FunctionReference<
+      "mutation",
+      "public",
+      {
+        error?: string;
+        id: Id<"projects">;
+        step:
+          | "not_started"
+          | "creating_sandbox"
+          | "uploading_media"
+          | "editing_sequence"
+          | "rendering_video"
+          | "completed"
+          | "failed";
+      },
+      any
+    >;
+    updateSandboxStatus: FunctionReference<
+      "mutation",
+      "public",
+      { id: Id<"projects">; status: "alive" | "dead" },
+      any
+    >;
+    animateSingleImage: FunctionReference<
+      "action",
+      "public",
+      { imageUrl: string; projectId: Id<"projects"> },
+      any
+    >;
   };
   render: {
+    createSequence: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+    downloadSandboxFolder: FunctionReference<
+      "action",
+      "public",
+      { folderPath: string; sandboxId: string },
+      any
+    >;
     getSandboxFileDownloadUrl: FunctionReference<
       "action",
       "public",
@@ -160,6 +213,12 @@ export type PublicApiType = {
       "action",
       "public",
       { filePath: string; sandboxId: string },
+      any
+    >;
+    renderFinalVideo: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
       any
     >;
     runSandboxCommand: FunctionReference<
