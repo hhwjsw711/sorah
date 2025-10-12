@@ -28,6 +28,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const step2UploadFiles = useAction(api.render.step2UploadFiles);
   const step3RunVideoEditor = useAction(api.render.step3RunVideoEditor);
   const step4RenderSequence = useAction(api.render.step4RenderSequence);
+  const updateRenderStep = useMutation(api.tasks.updateRenderStep);
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
   const readSandboxFile = useAction(api.render.readSandboxFile);
@@ -702,21 +703,31 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                 </div>
                               </div>
                               {(!project.renderStep || project.renderStep === 'not_started' || project.renderStep === 'failed') && (
-                                <button
-                                  onClick={async () => {
-                                    setStep1Running(true);
-                                    try {
-                                      await step1StartSandbox({ projectId: id as Id<"projects"> });
-                                      await checkSandboxStatus();
-                                    } finally {
-                                      setStep1Running(false);
-                                    }
-                                  }}
-                                  disabled={step1Running}
-                                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
-                                >
-                                  {step1Running ? 'starting...' : 'run'}
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      setStep1Running(true);
+                                      try {
+                                        await step1StartSandbox({ projectId: id as Id<"projects"> });
+                                        await checkSandboxStatus();
+                                      } finally {
+                                        setStep1Running(false);
+                                      }
+                                    }}
+                                    disabled={step1Running}
+                                    className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
+                                  >
+                                    {step1Running ? 'starting...' : 'run'}
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      await updateRenderStep({ id: id as Id<"projects">, step: 'uploading_media' });
+                                    }}
+                                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs"
+                                  >
+                                    skip
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -731,21 +742,31 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                 </div>
                               </div>
                               {project.renderStep === 'creating_sandbox' && sandboxAlive && (
-                                <button
-                                  onClick={async () => {
-                                    setStep2Running(true);
-                                    try {
-                                      await step2UploadFiles({ projectId: id as Id<"projects"> });
-                                      await loadFiles();
-                                    } finally {
-                                      setStep2Running(false);
-                                    }
-                                  }}
-                                  disabled={step2Running}
-                                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
-                                >
-                                  {step2Running ? 'uploading...' : 'run'}
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      setStep2Running(true);
+                                      try {
+                                        await step2UploadFiles({ projectId: id as Id<"projects"> });
+                                        await loadFiles();
+                                      } finally {
+                                        setStep2Running(false);
+                                      }
+                                    }}
+                                    disabled={step2Running}
+                                    className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
+                                  >
+                                    {step2Running ? 'uploading...' : 'run'}
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      await updateRenderStep({ id: id as Id<"projects">, step: 'editing_sequence' });
+                                    }}
+                                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs"
+                                  >
+                                    skip
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -760,21 +781,31 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                 </div>
                               </div>
                               {project.renderStep === 'uploading_media' && (
-                                <button
-                                  onClick={async () => {
-                                    setStep3Running(true);
-                                    try {
-                                      await step3RunVideoEditor({ projectId: id as Id<"projects"> });
-                                      await loadFiles();
-                                    } finally {
-                                      setStep3Running(false);
-                                    }
-                                  }}
-                                  disabled={step3Running}
-                                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
-                                >
-                                  {step3Running ? 'editing...' : 'run'}
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      setStep3Running(true);
+                                      try {
+                                        await step3RunVideoEditor({ projectId: id as Id<"projects"> });
+                                        await loadFiles();
+                                      } finally {
+                                        setStep3Running(false);
+                                      }
+                                    }}
+                                    disabled={step3Running}
+                                    className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
+                                  >
+                                    {step3Running ? 'editing...' : 'run'}
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      await updateRenderStep({ id: id as Id<"projects">, step: 'rendering_video' });
+                                    }}
+                                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs"
+                                  >
+                                    skip
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -789,21 +820,31 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                 </div>
                               </div>
                               {project.renderStep === 'editing_sequence' && (
-                                <button
-                                  onClick={async () => {
-                                    setStep4Running(true);
-                                    try {
-                                      await step4RenderSequence({ projectId: id as Id<"projects"> });
-                                      await loadFiles();
-                                    } finally {
-                                      setStep4Running(false);
-                                    }
-                                  }}
-                                  disabled={step4Running}
-                                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
-                                >
-                                  {step4Running ? 'rendering...' : 'run'}
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      setStep4Running(true);
+                                      try {
+                                        await step4RenderSequence({ projectId: id as Id<"projects"> });
+                                        await loadFiles();
+                                      } finally {
+                                        setStep4Running(false);
+                                      }
+                                    }}
+                                    disabled={step4Running}
+                                    className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
+                                  >
+                                    {step4Running ? 'rendering...' : 'run'}
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      await updateRenderStep({ id: id as Id<"projects">, step: 'completed' });
+                                    }}
+                                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs"
+                                  >
+                                    skip
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>

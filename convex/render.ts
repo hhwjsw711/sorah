@@ -412,7 +412,9 @@ export const getSandboxInfo = action({
         throw new Error("E2B_API_KEY not set");
       }
 
-      const sandbox = await Sandbox.connect(sandboxId);
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 3600000,
+      });
       
       const lsResult = await sandbox.commands.run("ls -lah /home/user/out/ 2>/dev/null || echo 'out directory not found'");
       const diskResult = await sandbox.commands.run("df -h /home/user");
