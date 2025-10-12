@@ -372,7 +372,7 @@ export const processProjectWithAI = action({
       }
 
       console.log("[ai-process] step 4: animating images");
-      const imageOnlyUrls = fileUrls.filter(url => isImageUrl(url));
+      const imageOnlyUrls = fileUrls.filter((url: string) => isImageUrl(url));
       for (let i = 0; i < Math.min(imageOnlyUrls.length, 3); i++) {
         console.log(`[ai-process] animating image ${i + 1}/${imageOnlyUrls.length}`);
         const animateResult = await ctx.runAction(api.aiServices.animateImage, {
