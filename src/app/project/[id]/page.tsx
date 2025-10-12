@@ -162,6 +162,17 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 <p className="text-sm font-medium text-gray-700 mb-3">media files for rendering</p>
                 <p className="text-xs text-gray-500 mb-3">files that will be placed in public/media/</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {project.fileUrls?.map((url, i) => (
+                    <div key={`file-${i}`} className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <div className="text-2xl mb-2">📁</div>
+                      <p className="text-xs font-medium text-gray-900">
+                        {url?.includes('.mp4') || url?.includes('.webm') || url?.includes('.mov') ? 'video' : 
+                         url?.includes('.mp3') || url?.includes('.wav') ? 'audio' : 'image'}{i}.
+                        {url?.split('.').pop()?.split('?')[0] || 'file'}
+                      </p>
+                      <p className="text-xs text-gray-600">uploaded</p>
+                    </div>
+                  ))}
                   {project.audioUrl && (
                     <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                       <div className="text-2xl mb-2">🎤</div>
