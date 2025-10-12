@@ -8,6 +8,7 @@ import Image from "next/image";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import DisplayCards from "@/components/ui/display-cards";
 import { FileImage, Video } from "lucide-react";
+import MediaFileCard from "@/components/MediaFileCard";
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -162,39 +163,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 <p className="text-sm font-medium text-gray-700 mb-3">media files for rendering</p>
                 <p className="text-xs text-gray-500 mb-3">files that will be placed in public/media/</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {project.fileUrls?.map((url, i) => {
-                    if (!url) return null;
-                    
-                    return (
-                      <div key={`file-${i}`} className="relative group">
-                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                          <div className="w-full h-20 bg-gray-200 rounded mb-2 overflow-hidden">
-                            <img 
-                              src={url} 
-                              alt={`file ${i}`} 
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const video = document.createElement('video');
-                                video.src = url;
-                                video.className = 'w-full h-full object-cover';
-                                video.muted = true;
-                                target.parentElement?.appendChild(video);
-                              }}
-                            />
-                          </div>
-                          <p className="text-xs font-medium text-gray-900">file {i}</p>
-                          <p className="text-xs text-gray-600">uploaded</p>
-                        </div>
-                        <button
-                          className="absolute inset-0 bg-purple-600/90 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm font-medium"
-                        >
-                          animate
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {project.fileUrls?.map((url, i) => 
+                    url ? <MediaFileCard key={`file-${i}`} url={url} index={i} /> : null
+                  )}
                   {project.audioUrl && (
                     <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                       <div className="text-2xl mb-2">🎤</div>
