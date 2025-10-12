@@ -114,7 +114,7 @@ export const renderVideo = action({
       });
       
       if (project.fileMetadata && project.fileMetadata.length > 0) {
-        console.log("[render] uploading original files...");
+        console.log("[render] uploading original files with metadata...");
         for (let i = 0; i < project.fileMetadata.length; i++) {
           const fileMeta = project.fileMetadata[i];
           const fileUrl = await ctx.storage.getUrl(fileMeta.storageId);
@@ -124,12 +124,26 @@ export const renderVideo = action({
           const response = await fetch(fileUrl);
           const buffer = await response.arrayBuffer();
           
-          const extension = fileMeta.filename.split('.').pop() || 'file';
           const sandboxPath = `/home/user/public/media/${fileMeta.filename}`;
           await sandbox.files.write(sandboxPath, buffer);
           console.log(`[render] uploaded ${fileMeta.filename} (${buffer.byteLength} bytes)`);
         }
+      } else if (project.files && project.files.length > 0) {
+        console.log("[render] uploading original files (legacy, no metadata)...");
+        for (let i = 0; i < project.files.length; i++) {
+          const fileUrl = await ctx.storage.getUrl(project.files[i]);
+          if (!fileUrl) continue;
+          
+          console.log(`[render] fetching file ${i}`);
+          const response = await fetch(fileUrl);
+          const buffer = await response.arrayBuffer();
+          
+          const sandboxPath = `/home/user/public/media/file${i}`;
+          await sandbox.files.write(sandboxPath, buffer);
+          console.log(`[render] uploaded file${i} (${buffer.byteLength} bytes)`);
+        }
       }
+      
       
       
       if (project.audioUrl && project.audioUrl.includes("example.com")) {
