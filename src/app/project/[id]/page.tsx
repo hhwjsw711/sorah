@@ -19,6 +19,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const regenerateVoiceover = useAction(api.tasks.regenerateVoiceover);
   const regenerateMusic = useAction(api.tasks.regenerateMusic);
   const regenerateAnimations = useAction(api.tasks.regenerateAnimations);
+  const generateUploadUrl = useMutation(api.tasks.generateUploadUrl);
+  const addFilesToProject = useMutation(api.tasks.addFilesToProject);
   const getSandboxInfo = useAction(api.render.getSandboxInfo);
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
@@ -44,6 +46,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [scriptDraft, setScriptDraft] = useState("");
   const [savingScript, setSavingScript] = useState(false);
   const [saveScriptError, setSaveScriptError] = useState<string | null>(null);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   useEffect(() => {
     if (isEditingScript) return;
@@ -170,8 +173,60 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   content: (
                     <div className="space-y-6">
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-3">input media</p>
-                        <p className="text-xs text-gray-500 mb-3">files that will be placed in public/media/</p>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">input media</p>
+                            <p className="text-xs text-gray-500">files that will be placed in public/media/</p>
+                          </div>
+                          <label className={`px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs cursor-pointer ${uploadingFiles ? 'opacity-50' : ''}`}>
+                            {uploadingFiles ? "uploading..." : "upload more"}
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*,video/*"
+                              className="hidden"
+                              disabled={uploadingFiles}
+                              onChange={async (e) => {
+                                const newFiles = Array.from(e.target.files || []);
+                                if (newFiles.length === 0) return;
+                                
+                                setUploadingFiles(true);
+                                try {
+                                  const fileIds = [];
+                                  const fileMetadata = [];
+                                  for (const file of newFiles) {
+                                    const uploadUrl = await generateUploadUrl();
+                                    const result = await fetch(uploadUrl, {
+                                      method: "POST",
+                                      headers: { "Content-Type": file.type },
+                                      body: file,
+                                    });
+                                    const { storageId } = await result.json();
+                                    fileIds.push(storageId);
+                                    fileMetadata.push({
+                                      storageId,
+                                      filename: file.name,
+                                      contentType: file.type,
+                                      size: file.size,
+                                    });
+                                  }
+                                  
+                                  await addFilesToProject({
+                                    projectId: project._id as Id<"projects">,
+                                    files: fileIds,
+                                    fileMetadata,
+                                  });
+                                } catch (error) {
+                                  console.error("upload error:", error);
+                                  alert("failed to upload files");
+                                } finally {
+                                  setUploadingFiles(false);
+                                  e.target.value = "";
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
                         {hasInputMedia ? (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {project.fileUrls?.map((url, i) =>

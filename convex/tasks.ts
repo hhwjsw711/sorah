@@ -46,6 +46,33 @@ export const createProject = mutation({
   },
 });
 
+export const addFilesToProject = mutation({
+  args: {
+    projectId: v.id("projects"),
+    files: v.array(v.id("_storage")),
+    fileMetadata: v.array(v.object({
+      storageId: v.id("_storage"),
+      filename: v.string(),
+      contentType: v.string(),
+      size: v.number(),
+    })),
+  },
+  handler: async (ctx, { projectId, files, fileMetadata }) => {
+    const project = await ctx.db.get(projectId);
+    if (!project) throw new Error("project not found");
+    
+    const updatedFiles = [...project.files, ...files];
+    const updatedFileMetadata = [...(project.fileMetadata || []), ...fileMetadata];
+    
+    await ctx.db.patch(projectId, {
+      files: updatedFiles,
+      fileMetadata: updatedFileMetadata,
+    });
+    
+    return projectId;
+  },
+});
+
 export const getProjects = query({
   args: {},
   handler: async (ctx) => {
