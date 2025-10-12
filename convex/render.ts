@@ -265,20 +265,20 @@ composition should be portrait!`;
         const hasMemoryError = claudeOutput.includes("memory") || claudeOutput.includes("killed");
         
         if (hasMemoryError) {
-          throw new Error("render failed due to insufficient memory - claude created the composition but couldn't render it. check sandbox files and try rendering manually with more resources.");
+          throw new Error("render failed due to insufficient memory - claude created the composition but couldn't render it. retry rendering with 'bun remotion render'");
         }
         
-        throw new Error(`output video not found at ${videoPath} - check logs and out/ directory for details. claude may have created files but not completed the render.`);
+        throw new Error(`output video not found at ${videoPath}. retry rendering with 'bun remotion render'`);
       }
       
       if (!outputVideo) {
-        throw new Error("output video is empty");
+        throw new Error("output video is empty. retry rendering with 'bun remotion render'");
       }
       const outputSize = typeof outputVideo === 'string' ? outputVideo.length : (outputVideo as ArrayBuffer).byteLength;
       console.log("[render] output video size:", outputSize, "from path:", videoPath);
       
       if (outputSize === 0 || outputSize < 1000) {
-        throw new Error(`output video is too small (${outputSize} bytes) - render likely failed`);
+        throw new Error(`output video is too small (${outputSize} bytes). retry rendering with 'bun remotion render'`);
       }
 
       console.log("[render] uploading to convex storage...");
@@ -305,7 +305,14 @@ composition should be portrait!`;
         status: "completed",
       });
 
-      console.log("[render] render complete! keeping sandbox alive");
+      console.log("[render] render complete! killing sandbox...");
+      try {
+        await sandbox.kill();
+        console.log("[render] sandbox killed successfully");
+      } catch (killError) {
+        console.log("[render] failed to kill sandbox:", killError);
+      }
+      
       return { success: true, renderedVideoUrl };
     } catch (error) {
       console.error("[render] error:", error);
