@@ -1,49 +1,70 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
+import Image from "next/image";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import DisplayCards from "@/components/ui/display-cards";
-import { FileImage, Video, ChevronDown, ChevronUp } from "lucide-react";
+import { FileImage, Video } from "lucide-react";
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const project = useQuery(api.tasks.getProject, { id: id as Id<"projects"> });
-  const createSequence = useAction(api.render.createSequence);
-  const renderFinalVideo = useAction(api.render.renderFinalVideo);
+  const renderVideo = useAction(api.render.renderVideo);
   const regenerateScript = useAction(api.tasks.regenerateScript);
   const regenerateVoiceover = useAction(api.tasks.regenerateVoiceover);
   const regenerateMusic = useAction(api.tasks.regenerateMusic);
   const regenerateAnimations = useAction(api.tasks.regenerateAnimations);
+  const getSandboxInfo = useAction(api.render.getSandboxInfo);
+  const runSandboxCommand = useAction(api.render.runSandboxCommand);
+  const listSandboxFiles = useAction(api.render.listSandboxFiles);
+  const readSandboxFile = useAction(api.render.readSandboxFile);
   const getSandboxFileDownloadUrl = useAction(api.render.getSandboxFileDownloadUrl);
-  
-  const [creatingSequence, setCreatingSequence] = useState(false);
-  const [renderingVideo, setRenderingVideo] = useState(false);
+  const downloadSandboxFolder = useAction(api.render.downloadSandboxFolder);
+  const [rendering, setRendering] = useState(false);
   const [regeneratingScript, setRegeneratingScript] = useState(false);
   const [regeneratingVoiceover, setRegeneratingVoiceover] = useState(false);
   const [regeneratingMusic, setRegeneratingMusic] = useState(false);
   const [regeneratingAnimations, setRegeneratingAnimations] = useState(false);
-  const [debugOpen, setDebugOpen] = useState(false);
+  const [sandboxInfo, setSandboxInfo] = useState<{ outDirectory?: string; diskUsage?: string; error?: string } | null>(null);
+  const [loadingSandbox, setLoadingSandbox] = useState(false);
+  const [command, setCommand] = useState("");
+  const [commandOutput, setCommandOutput] = useState<{ stdout: string; stderr: string; exitCode: number } | null>(null);
+  const [runningCommand, setRunningCommand] = useState(false);
+  const [outFiles, setOutFiles] = useState<{ name: string; path: string; isDir: boolean }[]>([]);
+  const [mediaFiles, setMediaFiles] = useState<{ name: string; path: string; isDir: boolean }[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{ name: string; content: string; isText: boolean } | null>(null);
+  const [loadingFileContent, setLoadingFileContent] = useState(false);
 
-  const handleCreateSequence = async () => {
-    setCreatingSequence(true);
+  const loadFiles = async () => {
+    if (!project?.sandboxId) return;
+    
+    setLoadingFiles(true);
     try {
-      await createSequence({ projectId: id as Id<"projects"> });
+      const [outResult, mediaResult] = await Promise.all([
+        listSandboxFiles({ sandboxId: project.sandboxId, path: "/home/user/out" }),
+        listSandboxFiles({ sandboxId: project.sandboxId, path: "/home/user/public/media" }),
+      ]);
+      
+      if (outResult.success && "files" in outResult) {
+        setOutFiles(outResult.files || []);
+      }
+      if (mediaResult.success && "files" in mediaResult) {
+        setMediaFiles(mediaResult.files || []);
+      }
     } finally {
-      setCreatingSequence(false);
+      setLoadingFiles(false);
     }
   };
 
-  const handleRenderVideo = async () => {
-    setRenderingVideo(true);
-    try {
-      await renderFinalVideo({ projectId: id as Id<"projects"> });
-    } finally {
-      setRenderingVideo(false);
+  useEffect(() => {
+    if (project?.sandboxId) {
+      loadFiles();
     }
-  };
+  }, [project?.sandboxId]);
 
   if (!project) {
     return (
@@ -58,10 +79,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     );
   }
 
-  const inputsReady = project.audioUrl && project.musicUrl && project.videoUrls && project.videoUrls.length > 0;
-  const renderStep = project.renderStep || "not_started";
-  const sandboxAlive = project.sandboxStatus === "alive";
-
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <div className="max-w-4xl mx-auto px-6 py-16">
@@ -72,25 +89,36 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              {project.prompt}
+              project status
             </h1>
             <div className="flex items-center gap-3">
-              {inputsReady && renderStep === "not_started" && (
+              <div className={`px-4 py-2 rounded-full text-sm font-medium ${
+                project.status === "completed" 
+                  ? "bg-green-100 text-green-700"
+                  : project.status === "failed"
+                  ? "bg-red-100 text-red-700"
+                  : project.status === "rendering"
+                  ? "bg-blue-100 text-blue-700 animate-pulse"
+                  : "bg-yellow-100 text-yellow-700 animate-pulse"
+              }`}>
+                {project.status || "processing"}
+              </div>
+              {(project.status === "completed" || project.status === "failed" || project.status === "rendering") && (
                 <button
-                  onClick={handleCreateSequence}
-                  disabled={creatingSequence}
+                  onClick={async () => {
+                    setRendering(true);
+                    try {
+                      await renderVideo({ projectId: id as Id<"projects"> });
+                    } catch (error) {
+                      console.error("render error:", error);
+                    } finally {
+                      setRendering(false);
+                    }
+                  }}
+                  disabled={rendering}
                   className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50"
                 >
-                  {creatingSequence ? "creating..." : "render"}
-                </button>
-              )}
-              {renderStep === "editing_sequence" && !sandboxAlive && (
-                <button
-                  onClick={handleCreateSequence}
-                  disabled={creatingSequence}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50"
-                >
-                  {creatingSequence ? "recreating..." : "re-create sandbox"}
+                  {rendering ? "rendering..." : project.renderedVideoUrl ? "re-render" : project.status === "rendering" ? "restart render" : project.status === "failed" ? "retry render" : "render video"}
                 </button>
               )}
             </div>
@@ -98,18 +126,23 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
           <div className="space-y-6">
             <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">prompt</p>
+              <p className="text-gray-800 p-4 bg-gray-50 rounded-lg">{project.prompt}</p>
+            </div>
+
+            <div>
               <p className="text-sm font-medium text-gray-700 mb-2">created</p>
               <p className="text-gray-600 text-sm">{new Date(project.createdAt).toLocaleString()}</p>
             </div>
 
             {project.fileUrls && project.fileUrls.length > 0 && (
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-6">source images</p>
+                <p className="text-sm font-medium text-gray-700 mb-6">uploaded files ({project.fileUrls.length})</p>
                 <DisplayCards
                   cards={project.fileUrls.slice(0, 3).filter((url): url is string => url !== null).map((url, i) => ({
                     icon: <FileImage className="size-4 text-purple-300" />,
                     title: `image ${i + 1}`,
-                    description: "source material",
+                    description: "ready for processing",
                     date: new Date(project.createdAt).toLocaleDateString(),
                     titleClassName: "text-purple-500",
                     mediaUrl: url,
@@ -124,17 +157,67 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
             )}
 
+            {(project.audioUrl || project.musicUrl || project.videoUrls) && (
+              <div className="border-t pt-6">
+                <p className="text-sm font-medium text-gray-700 mb-3">media files for rendering</p>
+                <p className="text-xs text-gray-500 mb-3">files that will be placed in public/media/</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {project.audioUrl && (
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <div className="text-2xl mb-2">🎤</div>
+                      <p className="text-xs font-medium text-purple-900">audio.mp3</p>
+                      <p className="text-xs text-purple-600 mb-2">voiceover</p>
+                      <audio controls className="w-full h-8">
+                        <source src={project.audioUrl} type="audio/mp3" />
+                      </audio>
+                    </div>
+                  )}
+                  {project.musicUrl && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="text-2xl mb-2">🎵</div>
+                      <p className="text-xs font-medium text-blue-900">music.mp3</p>
+                      <p className="text-xs text-blue-600 mb-2">background</p>
+                      <audio controls className="w-full h-8">
+                        <source src={project.musicUrl} type="audio/mp3" />
+                      </audio>
+                    </div>
+                  )}
+                  {project.videoUrls?.map((url, i) => (
+                    <div key={i} className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                      <div className="text-2xl mb-2">🎬</div>
+                      <p className="text-xs font-medium text-pink-900">video{i}.mp4</p>
+                      <p className="text-xs text-pink-600">animated</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="border-t pt-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">input generation</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-4">processing stages</h2>
               
               <div className="space-y-3">
-                <div className={`flex items-center gap-3 p-4 rounded-lg ${project.script ? "bg-green-50" : project.status === "processing" ? "bg-yellow-50 animate-pulse" : "bg-gray-50"}`}>
+                <div className={`flex items-center gap-3 p-4 rounded-lg ${
+                  project.status ? "bg-green-50" : "bg-gray-50"
+                }`}>
+                  <div className={`text-2xl ${project.status ? "opacity-100" : "opacity-30"}`}>
+                    {project.status ? "✓" : "○"}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800">1. upload files</p>
+                    <p className="text-sm text-gray-600">files uploaded and stored</p>
+                  </div>
+                </div>
+
+                <div className={`flex items-center gap-3 p-4 rounded-lg ${
+                  project.script ? "bg-green-50" : project.status === "processing" ? "bg-yellow-50 animate-pulse" : "bg-gray-50"
+                }`}>
                   <div className={`text-2xl ${project.script ? "opacity-100" : "opacity-30"}`}>
                     {project.script ? "✓" : project.status === "processing" ? "⏳" : "○"}
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-800">1. script</p>
-                    <p className="text-sm text-gray-600">15-second social media script</p>
+                    <p className="font-medium text-gray-800">2. generate script</p>
+                    <p className="text-sm text-gray-600">creating 15-second social media script</p>
                   </div>
                   {(project.script || project.status === "failed") && (
                     <button
@@ -149,18 +232,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       disabled={regeneratingScript}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                     >
-                      {regeneratingScript ? "..." : "regenerate"}
+                      {regeneratingScript ? "..." : project.script ? "regenerate" : "start"}
                     </button>
                   )}
                 </div>
 
-                <div className={`flex items-center gap-3 p-4 rounded-lg ${project.audioUrl ? "bg-green-50" : project.script ? "bg-yellow-50 animate-pulse" : "bg-gray-50"}`}>
+                <div className={`flex items-center gap-3 p-4 rounded-lg ${
+                  project.audioUrl ? "bg-green-50" : project.script ? "bg-yellow-50 animate-pulse" : "bg-gray-50"
+                }`}>
                   <div className={`text-2xl ${project.audioUrl ? "opacity-100" : "opacity-30"}`}>
                     {project.audioUrl ? "✓" : project.script ? "⏳" : "○"}
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-800">2. voiceover</p>
-                    <p className="text-sm text-gray-600">elevenlabs text-to-speech</p>
+                    <p className="font-medium text-gray-800">3. generate voiceover</p>
+                    <p className="text-sm text-gray-600">converting script to speech with elevenlabs</p>
                   </div>
                   {(project.audioUrl || (project.script && project.status === "failed")) && (
                     <button
@@ -175,18 +260,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       disabled={regeneratingVoiceover}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                     >
-                      {regeneratingVoiceover ? "..." : "regenerate"}
+                      {regeneratingVoiceover ? "..." : project.audioUrl ? "regenerate" : "start"}
                     </button>
                   )}
                 </div>
 
-                <div className={`flex items-center gap-3 p-4 rounded-lg ${project.musicUrl ? "bg-green-50" : project.audioUrl ? "bg-yellow-50 animate-pulse" : "bg-gray-50"}`}>
+                <div className={`flex items-center gap-3 p-4 rounded-lg ${
+                  project.musicUrl ? "bg-green-50" : project.audioUrl ? "bg-yellow-50 animate-pulse" : "bg-gray-50"
+                }`}>
                   <div className={`text-2xl ${project.musicUrl ? "opacity-100" : "opacity-30"}`}>
                     {project.musicUrl ? "✓" : project.audioUrl ? "⏳" : "○"}
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-800">3. background music</p>
-                    <p className="text-sm text-gray-600">matching audio track</p>
+                    <p className="font-medium text-gray-800">4. generate background music</p>
+                    <p className="text-sm text-gray-600">creating matching background track</p>
                   </div>
                   {(project.musicUrl || (project.audioUrl && project.status === "failed")) && (
                     <button
@@ -201,20 +288,22 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       disabled={regeneratingMusic}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                     >
-                      {regeneratingMusic ? "..." : "regenerate"}
+                      {regeneratingMusic ? "..." : project.musicUrl ? "regenerate" : "start"}
                     </button>
                   )}
                 </div>
 
-                <div className={`flex items-center gap-3 p-4 rounded-lg ${project.videoUrls && project.videoUrls.length > 0 ? "bg-green-50" : (project.musicUrl && project.status === "processing") ? "bg-yellow-50 animate-pulse" : "bg-gray-50"}`}>
+                <div className={`flex items-center gap-3 p-4 rounded-lg ${
+                  project.videoUrls && project.videoUrls.length > 0 ? "bg-green-50" : (project.musicUrl && project.status === "processing") ? "bg-yellow-50 animate-pulse" : "bg-gray-50"
+                }`}>
                   <div className={`text-2xl ${project.videoUrls && project.videoUrls.length > 0 ? "opacity-100" : "opacity-30"}`}>
                     {project.videoUrls && project.videoUrls.length > 0 ? "✓" : (project.musicUrl && project.status === "processing") ? "⏳" : "○"}
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-800">4. animated videos</p>
-                    <p className="text-sm text-gray-600">fal ai image-to-video</p>
+                    <p className="font-medium text-gray-800">5. animate images</p>
+                    <p className="text-sm text-gray-600">generating 3-second videos from images using fal ai</p>
                   </div>
-                  {((project.videoUrls && project.videoUrls.length > 0) || project.musicUrl) && project.status !== "processing" && (
+                  {((project.videoUrls && project.videoUrls.length > 0) || (project.musicUrl && project.status === "failed")) && project.status !== "processing" && (
                     <button
                       onClick={async () => {
                         setRegeneratingAnimations(true);
@@ -234,130 +323,42 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
             </div>
 
-            {inputsReady && (
-              <>
-                <div className="border-t pt-6">
-                  <h2 className="text-xl font-bold text-gray-800 mb-4">render process</h2>
-                  
-                  {renderStep === "not_started" && (
-                    <div className="p-6 bg-gray-50 rounded-lg text-center">
-                      <p className="text-gray-600 mb-4">ready to create your video</p>
-                      <button
-                        onClick={handleCreateSequence}
-                        disabled={creatingSequence}
-                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50"
-                      >
-                        {creatingSequence ? "starting..." : "start render"}
-                      </button>
-                    </div>
-                  )}
-
-                  {(renderStep === "creating_sandbox" || renderStep === "uploading_media" || renderStep === "editing_sequence") && (
-                    <div className="space-y-3">
-                      {!sandboxAlive && renderStep === "editing_sequence" && (
-                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="text-red-700 font-medium mb-2">⚠️ sandbox died</p>
-                          <p className="text-sm text-red-600 mb-3">the sandbox environment is no longer available</p>
-                          <button
-                            onClick={handleCreateSequence}
-                            disabled={creatingSequence}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
-                          >
-                            {creatingSequence ? "recreating..." : "re-create sandbox"}
-                          </button>
-                        </div>
-                      )}
-                      
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="text-2xl animate-spin">⚙️</div>
-                          <div className="flex-1">
-                            <p className="font-semibold text-blue-900">
-                              {renderStep === "creating_sandbox" && "creating sandbox environment..."}
-                              {renderStep === "uploading_media" && "uploading media files..."}
-                              {renderStep === "editing_sequence" && "claude is editing video sequence..."}
-                            </p>
-                            {project.renderProgress?.details && (
-                              <p className="text-sm text-blue-700">{project.renderProgress.details}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {renderStep === "editing_sequence" && sandboxAlive && (
-                        <button
-                          onClick={handleRenderVideo}
-                          disabled={renderingVideo}
-                          className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-                        >
-                          {renderingVideo ? "rendering..." : "render video (skip wait)"}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {renderStep === "rendering_video" && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="text-2xl animate-spin">🎬</div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-blue-900">rendering final video...</p>
-                          <p className="text-sm text-blue-700">running remotion render</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {renderStep === "completed" && project.renderedVideoUrl && (
-                    <div className="space-y-4">
-                      <div className="p-6 bg-green-50 rounded-lg text-center border border-green-200">
-                        <div className="text-4xl mb-3">🎉</div>
-                        <p className="text-green-800 font-medium text-lg mb-4">render complete!</p>
-                        <video
-                          controls
-                          className="w-full max-w-md mx-auto rounded-lg shadow-lg mb-4"
-                          src={project.renderedVideoUrl}
-                        />
-                        <a 
-                          href={project.renderedVideoUrl}
-                          download="main.mp4"
-                          className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-                        >
-                          <span>⬇</span>
-                          download main.mp4
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  {renderStep === "failed" && (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-red-700 font-medium mb-2">render failed</p>
-                      <p className="text-sm text-red-600 mb-3">{project.renderError || "unknown error"}</p>
-                      <button
-                        onClick={handleRenderVideo}
-                        disabled={renderingVideo}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
-                      >
-                        {renderingVideo ? "retrying..." : "retry render"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
             {project.script && (
               <div className="border-t pt-6">
-                <p className="text-sm font-medium text-gray-700 mb-2">generated script</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-700">generated script</p>
+                  <button
+                    onClick={async () => {
+                      setRegeneratingScript(true);
+                      try {
+                        await regenerateScript({ projectId: id as Id<"projects"> });
+                      } finally {
+                        setRegeneratingScript(false);
+                      }
+                    }}
+                    disabled={regeneratingScript}
+                    className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
+                  >
+                    {regeneratingScript ? "regenerating..." : "regenerate"}
+                  </button>
+                </div>
                 <p className="text-gray-800 p-4 bg-gray-50 rounded-lg leading-relaxed">{project.script}</p>
+              </div>
+            )}
+
+            {project.srtContent && (
+              <div className="border-t pt-6">
+                <p className="text-sm font-medium text-gray-700 mb-2">subtitles (SRT)</p>
+                <div className="p-4 bg-gray-50 rounded-lg max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-gray-800 font-mono whitespace-pre-wrap">{project.srtContent}</pre>
+                </div>
               </div>
             )}
 
             {(project.audioUrl || project.musicUrl || project.videoUrls) && (
               <div className="border-t pt-6">
                 <p className="text-sm font-medium text-gray-700 mb-1">generated media</p>
-                <p className="text-xs text-gray-500 mb-6">ai-generated assets</p>
+                <p className="text-xs text-gray-500 mb-6">all ai-generated files ready to download</p>
                 <DisplayCards
                   cards={[
                     ...(project.videoUrls?.slice(0, 3).map((url, i) => ({
@@ -379,50 +380,372 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </div>
             )}
 
-            <div className="border-t pt-6">
-              <button
-                onClick={() => setDebugOpen(!debugOpen)}
-                className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <span className="font-medium text-gray-700">debug info</span>
-                {debugOpen ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
-              </button>
-              
-              {debugOpen && (
-                <div className="mt-4 space-y-4">
-                  {project.sandboxId && (
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm font-medium text-gray-700 mb-2">sandbox</p>
-                      <p className="font-mono text-xs text-gray-600 mb-2">id: {project.sandboxId}</p>
-                      <p className="text-xs text-gray-600">
-                        status: <span className={sandboxAlive ? "text-green-600" : "text-red-600"}>
-                          {sandboxAlive ? "alive" : "dead"}
-                        </span>
-                      </p>
+            {project.status === "rendering" && project.renderProgress && (
+              <div className="border-t pt-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">render progress</h2>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="text-2xl animate-spin">⚙️</div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-blue-900">{project.renderProgress.step}</p>
+                      {project.renderProgress.details && (
+                        <p className="text-sm text-blue-700">{project.renderProgress.details}</p>
+                      )}
                     </div>
-                  )}
-                  
-                  {project.error && (
-                    <div className="p-4 bg-red-50 rounded-lg">
-                      <p className="text-sm font-medium text-red-700 mb-2">error log</p>
-                      <p className="text-xs text-red-600">{project.error}</p>
-                    </div>
-                  )}
-
-                  {project.renderError && (
-                    <div className="p-4 bg-red-50 rounded-lg">
-                      <p className="text-sm font-medium text-red-700 mb-2">render error</p>
-                      <p className="text-xs text-red-600">{project.renderError}</p>
-                    </div>
-                  )}
-
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700 mb-2">render step</p>
-                    <p className="text-xs text-gray-600">{renderStep}</p>
                   </div>
+                  <div className="mt-2 text-xs text-blue-600">
+                    last updated: {new Date(project.renderProgress.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {project.sandboxId && (
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-gray-700">sandbox info</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        setLoadingSandbox(true);
+                        try {
+                          const result = await getSandboxInfo({ sandboxId: project.sandboxId! });
+                          setSandboxInfo(result as { outDirectory?: string; diskUsage?: string; error?: string });
+                        } finally {
+                          setLoadingSandbox(false);
+                        }
+                      }}
+                      disabled={loadingSandbox}
+                      className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                    >
+                      {loadingSandbox ? "loading..." : "refresh"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const result = await downloadSandboxFolder({ 
+                          sandboxId: project.sandboxId!, 
+                          folderPath: "/home/user" 
+                        });
+                        if (result.success && "base64Content" in result) {
+                          const binaryString = atob(result.base64Content || "");
+                          const bytes = new Uint8Array(binaryString.length);
+                          for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                          }
+                          const blob = new Blob([bytes], { type: "application/zip" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "sandbox.zip";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      }}
+                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                    >
+                      download zip
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm space-y-2">
+                  <p className="font-mono text-xs text-gray-600">id: {project.sandboxId}</p>
+                  {sandboxInfo && !sandboxInfo.error && (
+                    <>
+                      {sandboxInfo.outDirectory && (
+                        <div>
+                          <p className="font-semibold text-gray-700 mb-1">out/ directory:</p>
+                          <pre className="bg-white p-2 rounded border border-gray-300 text-xs overflow-x-auto">{sandboxInfo.outDirectory}</pre>
+                        </div>
+                      )}
+                      {sandboxInfo.diskUsage && (
+                        <div>
+                          <p className="font-semibold text-gray-700 mb-1">disk usage:</p>
+                          <pre className="bg-white p-2 rounded border border-gray-300 text-xs overflow-x-auto">{sandboxInfo.diskUsage}</pre>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {sandboxInfo?.error && (
+                    <p className="text-red-600 text-xs">{sandboxInfo.error}</p>
+                  )}
+                </div>
+
+                <div className="mt-4 p-4 bg-black rounded-lg border border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-green-400 font-mono text-sm">$</span>
+                    <input
+                      type="text"
+                      value={command}
+                      onChange={(e) => setCommand(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter" && command.trim() && !runningCommand) {
+                          setRunningCommand(true);
+                          try {
+                            const result = await runSandboxCommand({ 
+                              sandboxId: project.sandboxId!, 
+                              command: command.trim() 
+                            });
+                            if (result.success && "exitCode" in result) {
+                              setCommandOutput({
+                                stdout: result.stdout || "",
+                                stderr: result.stderr || "",
+                                exitCode: result.exitCode || 0,
+                              });
+                            } else if ("error" in result) {
+                              setCommandOutput({
+                                stdout: "",
+                                stderr: result.error || "command failed",
+                                exitCode: 1,
+                              });
+                            }
+                          } finally {
+                            setRunningCommand(false);
+                          }
+                        }
+                      }}
+                      placeholder="ls -la"
+                      disabled={runningCommand}
+                      className="flex-1 bg-transparent text-gray-100 font-mono text-sm outline-none placeholder-gray-500"
+                    />
+                  </div>
+                  {commandOutput && (
+                    <div className="mt-2 font-mono text-xs">
+                      {commandOutput.stdout && (
+                        <pre className="text-gray-300 whitespace-pre-wrap">{commandOutput.stdout}</pre>
+                      )}
+                      {commandOutput.stderr && (
+                        <pre className="text-red-400 whitespace-pre-wrap">{commandOutput.stderr}</pre>
+                      )}
+                      <div className="text-gray-500 mt-1">exit code: {commandOutput.exitCode}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {project.sandboxId && (
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-gray-700">input files (public/media/)</p>
+                  <button
+                    onClick={loadFiles}
+                    disabled={loadingFiles}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    {loadingFiles ? "refreshing..." : "refresh"}
+                  </button>
+                </div>
+                
+                {mediaFiles.length > 0 && (
+                  <div className="space-y-2 mb-6">
+                    {mediaFiles.map((file) => (
+                      <div key={file.path} className="flex items-center gap-2">
+                        <div className="flex-1 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{file.isDir ? "📁" : "📄"}</span>
+                            <span className="text-sm font-mono">{file.name}</span>
+                          </div>
+                        </div>
+                        {!file.isDir && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "downloadUrl" in result) {
+                                  window.open(result.downloadUrl, '_blank');
+                                }
+                              }}
+                              className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs"
+                              title="preview in browser"
+                            >
+                              👁
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "downloadUrl" in result) {
+                                  const a = document.createElement('a');
+                                  a.href = result.downloadUrl || "";
+                                  a.download = file.name;
+                                  a.click();
+                                }
+                              }}
+                              className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs"
+                              title="download file"
+                            >
+                              ⬇
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-sm font-medium text-gray-700 mb-3">output files (out/)</p>
+                
+                {outFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {outFiles.map((file) => (
+                      <div key={file.path} className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            if (!file.isDir) {
+                              setLoadingFileContent(true);
+                              setSelectedFile(null);
+                              try {
+                                const result = await readSandboxFile({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "content" in result) {
+                                  setSelectedFile({
+                                    name: file.name,
+                                    content: result.content || "",
+                                    isText: result.isText || false,
+                                  });
+                                }
+                              } finally {
+                                setLoadingFileContent(false);
+                              }
+                            }
+                          }}
+                          disabled={file.isDir || loadingFileContent}
+                          className="flex-1 text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors disabled:opacity-50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{file.isDir ? "📁" : "📄"}</span>
+                            <span className="text-sm font-mono">{file.name}</span>
+                          </div>
+                        </button>
+                        {!file.isDir && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "downloadUrl" in result) {
+                                  window.open(result.downloadUrl, '_blank');
+                                }
+                              }}
+                              className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs"
+                              title="preview in browser"
+                            >
+                              👁
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({ 
+                                  sandboxId: project.sandboxId!, 
+                                  filePath: file.path 
+                                });
+                                if (result.success && "downloadUrl" in result) {
+                                  const a = document.createElement('a');
+                                  a.href = result.downloadUrl || "";
+                                  a.download = file.name;
+                                  a.click();
+                                }
+                              }}
+                              className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs"
+                              title="download file"
+                            >
+                              ⬇
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selectedFile && (
+                  <div className="mt-4 p-4 bg-black rounded-lg border border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-green-400 font-mono text-sm">{selectedFile.name}</p>
+                      <button
+                        onClick={() => setSelectedFile(null)}
+                        className="text-gray-400 hover:text-gray-200 text-xs"
+                      >
+                        close
+                      </button>
+                    </div>
+                    {selectedFile.isText ? (
+                      <pre className="text-gray-300 font-mono text-xs whitespace-pre-wrap overflow-x-auto">
+                        {atob(selectedFile.content)}
+                      </pre>
+                    ) : selectedFile.name.endsWith('.mp4') || selectedFile.name.endsWith('.webm') ? (
+                      <video
+                        controls
+                        className="w-full rounded"
+                        src={`data:video/mp4;base64,${selectedFile.content}`}
+                      />
+                    ) : selectedFile.name.endsWith('.png') || selectedFile.name.endsWith('.jpg') || selectedFile.name.endsWith('.jpeg') ? (
+                      <img
+                        alt={selectedFile.name}
+                        className="w-full rounded"
+                        src={`data:image/png;base64,${selectedFile.content}`}
+                      />
+                    ) : (
+                      <div className="text-gray-400 text-xs">binary file preview not available</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="border-t pt-6">
+              <p className="text-sm font-medium text-gray-700 mb-3">convex storage</p>
+              {project.renderedVideoUrl ? (
+                <>
+                  <p className="text-xs text-gray-500 mb-3">rendered video ready</p>
+                  <a 
+                    href={project.renderedVideoUrl}
+                    download
+                    className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 text-purple-800 rounded-lg text-sm font-semibold hover:shadow-lg transition-all"
+                  >
+                    <span className="text-2xl">🎥</span>
+                    <div className="flex-1 text-left">
+                      <div className="font-bold">Main.mp4</div>
+                      <div className="text-xs text-purple-600">final rendered video from remotion</div>
+                    </div>
+                    <span className="text-xs">⬇</span>
+                  </a>
+                </>
+              ) : (
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                  <div className="text-3xl mb-2">📁</div>
+                  <p className="text-sm text-gray-600">not rendered yet</p>
+                  <p className="text-xs text-gray-500 mt-1">click render button to generate video</p>
                 </div>
               )}
             </div>
+
+            {project.error && (
+              <div className="border-t pt-6">
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm font-medium text-red-700 mb-1">error occurred</p>
+                  <p className="text-sm text-red-600">{project.error}</p>
+                </div>
+              </div>
+            )}
+
+            {project.status === "completed" && (
+              <div className="border-t pt-6">
+                <div className="p-6 bg-green-50 rounded-lg text-center border border-green-200">
+                  <div className="text-4xl mb-3">🎉</div>
+                  <p className="text-green-800 font-medium text-lg">project completed!</p>
+                  <p className="text-sm text-green-600 mt-1">all media files are ready to download</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
