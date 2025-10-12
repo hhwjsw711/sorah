@@ -699,6 +699,7 @@ export const animateSingleImage = action({
           const existingVideos = project?.videoUrls || [];
           
           await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+            status: "processing",
             id: projectId,
             videoUrls: [...existingVideos, videoUrl],
           });
