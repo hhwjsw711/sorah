@@ -335,6 +335,7 @@ composition should be portrait!`;
       }
       
       return { success: true, renderedVideoUrl };
+      return { success: true, renderedVideoUrl };
     } catch (error) {
       console.error("[render] error:", error);
       await ctx.runMutation(api.tasks.updateProjectWithRenderResult, {
@@ -348,7 +349,6 @@ composition should be portrait!`;
         error: error instanceof Error ? error.message : "render failed",
       };
     }
-  },
 });
 
 export const getSandboxInfo = action({
