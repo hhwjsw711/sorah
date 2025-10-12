@@ -214,7 +214,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     <p className="font-medium text-gray-800">4. animated videos</p>
                     <p className="text-sm text-gray-600">fal ai image-to-video</p>
                   </div>
-                  {((project.videoUrls && project.videoUrls.length > 0) || (project.musicUrl && project.status === "failed")) && project.status !== "processing" && (
+                  {((project.videoUrls && project.videoUrls.length > 0) || project.musicUrl) && project.status !== "processing" && (
                     <button
                       onClick={async () => {
                         setRegeneratingAnimations(true);
@@ -227,7 +227,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                       disabled={regeneratingAnimations}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                     >
-                      {regeneratingAnimations ? "..." : "regenerate"}
+                      {regeneratingAnimations ? "..." : (project.videoUrls && project.videoUrls.length > 0) ? "regenerate" : "start"}
                     </button>
                   )}
                 </div>
