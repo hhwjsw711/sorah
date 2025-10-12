@@ -640,3 +640,35 @@ export const regenerateMusic = action({
     }
   },
 });
+
+export const updateRenderStep = mutation({
+  args: {
+    id: v.id("projects"),
+    step: v.union(
+      v.literal("not_started"),
+      v.literal("creating_sandbox"),
+      v.literal("uploading_media"),
+      v.literal("editing_sequence"),
+      v.literal("rendering_video"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, step, error }) => {
+    await ctx.db.patch(id, { 
+      renderStep: step,
+      renderError: error,
+    });
+  },
+});
+
+export const updateSandboxStatus = mutation({
+  args: {
+    id: v.id("projects"),
+    status: v.union(v.literal("alive"), v.literal("dead")),
+  },
+  handler: async (ctx, { id, status }) => {
+    await ctx.db.patch(id, { sandboxStatus: status });
+  },
+});

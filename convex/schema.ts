@@ -36,5 +36,20 @@ export default defineSchema({
       })
     ),
     sandboxId: v.optional(v.string()),
+    sandboxStatus: v.optional(v.union(
+      v.literal("alive"),
+      v.literal("dead")
+    )),
+    renderStep: v.optional(v.union(
+      v.literal("not_started"),
+      v.literal("creating_sandbox"),
+      v.literal("uploading_media"),
+      v.literal("editing_sequence"),
+      v.literal("rendering_video"),
+      v.literal("completed"),
+      v.literal("failed")
+    )),
+    renderError: v.optional(v.string()),
   }),
 });
+

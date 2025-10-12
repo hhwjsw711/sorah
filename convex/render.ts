@@ -549,3 +549,235 @@ export const downloadSandboxFolder = action({
 });
 
 
+
+export const createSequence = action({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { projectId }) => {
+    console.log("[sequence] starting sequence creation for project:", projectId);
+    
+    try {
+      const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+      if (!project) {
+        throw new Error("project not found");
+      }
+
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+      
+      const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      if (!claudeToken) {
+        throw new Error("CLAUDE_CODE_OAUTH_TOKEN not set");
+      }
+
+      let sandbox;
+      if (project.sandboxId) {
+        console.log("[sequence] attempting to connect to existing sandbox");
+        try {
+          sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
+          console.log("[sequence] connected to existing sandbox");
+        } catch {
+          console.log("[sequence] sandbox is dead, creating new one");
+          sandbox = null;
+        }
+      }
+
+      if (!sandbox) {
+        console.log("[sequence] creating new sandbox...");
+        await ctx.runMutation(api.tasks.updateRenderProgress, {
+          id: projectId,
+          step: "creating sandbox",
+          details: "initializing e2b environment",
+        });
+        
+        sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
+          autoPause: true,
+          timeoutMs: 3600000,
+          envs: { CLAUDE_CODE_OAUTH_TOKEN: claudeToken },
+        });
+        console.log("[sequence] sandbox created:", sandbox.sandboxId);
+        
+        await ctx.runMutation(api.tasks.updateProjectSandbox, {
+          id: projectId,
+          sandboxId: sandbox.sandboxId,
+        });
+      }
+
+      console.log("[sequence] preparing media files...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "uploading media",
+        details: "transferring files to sandbox",
+      });
+      
+      await sandbox.commands.run("mkdir -p /home/user/public/media /home/user/public/reelful");
+      
+      const srtContent = project.srtContent || "";
+      await sandbox.files.write("/home/user/public/reelful-fast.srt", srtContent);
+      await sandbox.files.write("/home/user/public/media/subtitles.srt", srtContent);
+
+      if (project.audioUrl) {
+        const audioResponse = await fetch(project.audioUrl);
+        const audioBuffer = await audioResponse.arrayBuffer();
+        await sandbox.files.write("/home/user/public/media/audio.mp3", audioBuffer);
+      }
+
+      if (project.musicUrl) {
+        const musicResponse = await fetch(project.musicUrl);
+        const musicBuffer = await musicResponse.arrayBuffer();
+        await sandbox.files.write("/home/user/public/media/music.mp3", musicBuffer);
+      }
+
+      if (project.videoUrls && project.videoUrls.length > 0) {
+        for (let i = 0; i < project.videoUrls.length; i++) {
+          const videoResponse = await fetch(project.videoUrls[i]);
+          const videoBuffer = await videoResponse.arrayBuffer();
+          await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
+          
+          if (i === 0) {
+            await sandbox.files.write(`/home/user/public/reelful/video_2025-10-10_18-12-33%20(2).mp4`, videoBuffer);
+          }
+        }
+      }
+
+      console.log("[sequence] running claude agent to edit video...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "claude video editing",
+        details: "claude is analyzing footage and creating composition",
+      });
+      
+      const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
+
+read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
+
+then decide on how to edit them together by emotion: ${project.prompt || 'create an engaging social media video'}
+
+bun remotion render when done
+
+upload out/reelful.mp4 
+curl -X POST https://reels-srt.vercel.app/api/fireworks -F "file=@out/reelful.mp4"
+
+and save srt into the public/reelful.srt
+
+create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
+
+we use bun btw
+
+composition should be portrait!`;
+
+      await sandbox.files.write("/home/user/prompt.txt", videoEditorPrompt);
+      
+      const claudeResult = await sandbox.commands.run(`bun run claude-agent.ts`, {
+        cwd: "/home/user",
+        timeoutMs: 600000,
+        requestTimeoutMs: 600000,
+      });
+      
+      if (claudeResult.exitCode !== 0) {
+        throw new Error(`claude editing failed: ${claudeResult.stderr}`);
+      }
+
+      console.log("[sequence] sequence created successfully");
+      return { success: true, sandboxId: sandbox.sandboxId };
+    } catch (error) {
+      console.error("[sequence] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "sequence creation failed",
+      };
+    }
+  },
+});
+
+export const renderFinalVideo = action({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { projectId }) => {
+    console.log("[render-final] starting final render for project:", projectId);
+    
+    try {
+      const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+      if (!project) {
+        throw new Error("project not found");
+      }
+
+      if (!project.sandboxId) {
+        throw new Error("no sandbox found - create sequence first");
+      }
+
+      console.log("[render-final] connecting to sandbox:", project.sandboxId);
+      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
+
+      console.log("[render-final] running remotion render...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "rendering video",
+        details: "running bun remotion render",
+      });
+
+      const remotionResult = await sandbox.commands.run(`bun remotion render`, {
+        cwd: "/home/user",
+        timeoutMs: 3600000,
+        requestTimeoutMs: 3600000,
+      });
+
+      if (remotionResult.exitCode !== 0) {
+        throw new Error(`remotion render failed: ${remotionResult.stderr}`);
+      }
+
+      console.log("[render-final] checking output video...");
+      const videoPath = "/home/user/out/Main.mp4";
+      
+      const statResult = await sandbox.commands.run(`stat "${videoPath}" 2>&1`);
+      if (statResult.exitCode !== 0) {
+        throw new Error(`output video not found at ${videoPath}`);
+      }
+      
+      const sizeResult = await sandbox.commands.run(`stat -f%z "${videoPath}" 2>/dev/null || stat -c%s "${videoPath}" 2>/dev/null`);
+      const outputSize = parseInt(sizeResult.stdout.trim() || "0");
+      
+      if (outputSize < 1000) {
+        throw new Error(`output video too small (${outputSize} bytes)`);
+      }
+
+      console.log("[render-final] downloading video...");
+      const downloadUrl = await sandbox.downloadUrl(videoPath, { useSignatureExpiration: 300000 });
+      const videoResponse = await fetch(downloadUrl);
+      
+      if (!videoResponse.ok) {
+        throw new Error(`failed to download video: ${videoResponse.statusText}`);
+      }
+      
+      const videoBuffer = await videoResponse.arrayBuffer();
+
+      console.log("[render-final] uploading to convex storage...");
+      const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const uploadResponse: Response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "video/mp4" },
+        body: videoBuffer,
+      });
+      const { storageId }: { storageId: Id<"_storage"> } = await uploadResponse.json();
+      const renderedVideoUrl: string | null = await ctx.storage.getUrl(storageId);
+
+      console.log("[render-final] uploaded to storage, killing sandbox...");
+      try {
+        await sandbox.kill();
+      } catch (killError) {
+        console.log("[render-final] failed to kill sandbox:", killError);
+      }
+
+      return { success: true, renderedVideoUrl };
+    } catch (error) {
+      console.error("[render-final] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "render failed",
+      };
+    }
+  },
+});
