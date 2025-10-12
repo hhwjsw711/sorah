@@ -435,6 +435,10 @@ export const getPipelineStatus = action({
     }
 
     try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
       const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 30000 });
       
       // check if sandbox is alive

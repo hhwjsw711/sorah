@@ -116,8 +116,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   };
 
   const refreshPipelineStatus = async () => {
-    const status = await getPipelineStatus({ projectId: id as Id<"projects"> });
-    setPipelineStatus(status);
+    try {
+      console.log('[pipeline] refreshing status for project:', id);
+      const status = await getPipelineStatus({ projectId: id as Id<"projects"> });
+      console.log('[pipeline] status:', status);
+      setPipelineStatus(status);
+    } catch (error) {
+      console.error('[pipeline] failed to get status:', error);
+    }
   };
 
   useEffect(() => {
