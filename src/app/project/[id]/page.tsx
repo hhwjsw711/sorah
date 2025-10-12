@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState, useEffect } from "react";
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -15,6 +15,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const project = useQuery(api.tasks.getProject, { id: id as Id<"projects"> });
   const renderVideo = useAction(api.render.renderVideo);
   const regenerateScript = useAction(api.tasks.regenerateScript);
+  const updateProjectScript = useMutation(api.tasks.updateProjectScript);
   const regenerateVoiceover = useAction(api.tasks.regenerateVoiceover);
   const regenerateMusic = useAction(api.tasks.regenerateMusic);
   const regenerateAnimations = useAction(api.tasks.regenerateAnimations);
@@ -39,6 +40,35 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{ name: string; content: string; isText: boolean } | null>(null);
   const [loadingFileContent, setLoadingFileContent] = useState(false);
+  const [isEditingScript, setIsEditingScript] = useState(false);
+  const [scriptDraft, setScriptDraft] = useState("");
+  const [savingScript, setSavingScript] = useState(false);
+  const [saveScriptError, setSaveScriptError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isEditingScript) return;
+    setScriptDraft(project?.script ?? "");
+  }, [project?.script, isEditingScript]);
+
+  const handleSaveScript = async () => {
+    if (!project?._id) return;
+    if (!scriptDraft.trim()) {
+      setSaveScriptError("script cannot be empty");
+      return;
+    }
+
+    setSavingScript(true);
+    setSaveScriptError(null);
+    try {
+      await updateProjectScript({ id: project._id as Id<"projects">, script: scriptDraft });
+      setIsEditingScript(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "failed to save script";
+      setSaveScriptError(message);
+    } finally {
+      setSavingScript(false);
+    }
+  };
 
   const loadFiles = async () => {
     if (!project?.sandboxId) return;
@@ -347,24 +377,81 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
                       {project.script && (
                         <div className="border-t pt-6">
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center justify-between mb-2 gap-3">
                             <p className="text-sm font-medium text-gray-700">generated script</p>
-                            <button
-                              onClick={async () => {
-                                setRegeneratingScript(true);
-                                try {
-                                  await regenerateScript({ projectId: id as Id<"projects"> });
-                                } finally {
-                                  setRegeneratingScript(false);
-                                }
-                              }}
-                              disabled={regeneratingScript}
-                              className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
-                            >
-                              {regeneratingScript ? "regenerating..." : "regenerate"}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {isEditingScript ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsEditingScript(false);
+                                      setSaveScriptError(null);
+                                      setScriptDraft(project.script ?? "");
+                                    }}
+                                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                                  >
+                                    cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleSaveScript}
+                                    disabled={savingScript || !scriptDraft.trim()}
+                                    className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                                  >
+                                    {savingScript ? "saving..." : "save"}
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsEditingScript(true);
+                                    setSaveScriptError(null);
+                                    setScriptDraft(project.script ?? "");
+                                  }}
+                                  className="px-3 py-1 text-xs bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
+                                >
+                                  edit
+                                </button>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  setRegeneratingScript(true);
+                                  try {
+                                    await regenerateScript({ projectId: id as Id<"projects"> });
+                                  } finally {
+                                    setRegeneratingScript(false);
+                                  }
+                                }}
+                                disabled={regeneratingScript}
+                                className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
+                              >
+                                {regeneratingScript ? "regenerating..." : "regenerate"}
+                              </button>
+                            </div>
                           </div>
-                          <p className="text-gray-800 p-4 bg-gray-50 rounded-lg leading-relaxed">{project.script}</p>
+                          {isEditingScript ? (
+                            <div>
+                              <textarea
+                                value={scriptDraft}
+                                onChange={(event) => setScriptDraft(event.target.value)}
+                                disabled={savingScript}
+                                className="w-full min-h-[160px] rounded-lg border border-gray-200 p-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-60"
+                              />
+                              <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                                <span>{scriptDraft.length} characters</span>
+                                {saveScriptError && <span className="text-red-600">{saveScriptError}</span>}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-gray-800 p-4 bg-gray-50 rounded-lg leading-relaxed whitespace-pre-wrap">
+                              {project.script}
+                            </p>
+                          )}
+                          {!isEditingScript && saveScriptError && (
+                            <p className="mt-2 text-xs text-red-600">{saveScriptError}</p>
+                          )}
                         </div>
                       )}
 

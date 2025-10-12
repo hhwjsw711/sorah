@@ -167,6 +167,17 @@ export const updateProjectStatus = mutation({
   },
 });
 
+export const updateProjectScript = mutation({
+  args: {
+    id: v.id("projects"),
+    script: v.string(),
+  },
+  handler: async (ctx, { id, script }) => {
+    await ctx.db.patch(id, { script });
+    return { id, script };
+  },
+});
+
 export const updateProjectWithRenderResult = mutation({
   args: {
     id: v.id("projects"),
