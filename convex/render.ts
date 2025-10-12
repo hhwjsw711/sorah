@@ -48,7 +48,9 @@ export const renderVideo = action({
           sandbox = await Sandbox.connect(project.sandboxId, {
             timeoutMs: 3600000,
           });
-          console.log("[render] connected to existing sandbox");
+          console.log("[render] connected to existing sandbox, waking it up...");
+          await sandbox.commands.run("echo 'sandbox alive'");
+          console.log("[render] sandbox is awake");
         } catch (error) {
           console.log("[render] failed to connect to existing sandbox, creating new one:", error);
 
@@ -100,12 +102,26 @@ export const renderVideo = action({
       await sandbox.commands.run("mkdir -p /home/user/public/media /home/user/public/reelful");
       console.log("[render] media directories created");
       
-      console.log("[render] creating srt files...");
-      const srtContent = project.srtContent || "";
-      await sandbox.files.write("/home/user/public/reelful-fast.srt", srtContent);
-      await sandbox.files.write("/home/user/public/media/subtitles.srt", srtContent);
-      console.log("[render] srt files created, length:", srtContent.length, "chars");
-
+      if (project.srtContent && project.srtContent.trim().length > 0) {
+        console.log("[render] uploading srt via storage, length:", project.srtContent.length, "chars");
+        const srtBuffer = Buffer.from(project.srtContent, 'utf-8');
+        const srtUploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+        const srtUploadResponse = await fetch(srtUploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" },
+          body: srtBuffer,
+        });
+        const { storageId: srtStorageId } = await srtUploadResponse.json();
+        const srtUrl = await ctx.storage.getUrl(srtStorageId);
+        
+        if (srtUrl) {
+          console.log("[render] downloading srt to sandbox");
+          await sandbox.commands.run(`curl -o /home/user/public/reelful-fast.srt "${srtUrl}"`);
+          await sandbox.commands.run(`curl -o /home/user/public/media/subtitles.srt "${srtUrl}"`);
+          console.log("[render] srt files written via curl");
+        }
+      }
+      
       console.log("[render] uploading media files...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
@@ -230,7 +246,9 @@ we use bun btw
 
 composition should be portrait!`;
 
-      await sandbox.files.write("/home/user/prompt.txt", videoEditorPrompt);
+      console.log("[render] writing prompt via command to avoid timeout");
+      const promptBase64 = Buffer.from(videoEditorPrompt).toString('base64');
+      await sandbox.commands.run(`echo '${promptBase64}' | base64 -d > /home/user/prompt.txt`);
       
       const claudeResult = await sandbox.commands.run(
         `bun run claude-agent.ts`,
@@ -647,9 +665,14 @@ export const createSequence = action({
       
       await sandbox.commands.run("mkdir -p /home/user/public/media /home/user/public/reelful");
       
-      const srtContent = project.srtContent || "";
-      await sandbox.files.write("/home/user/public/reelful-fast.srt", srtContent);
-      await sandbox.files.write("/home/user/public/media/subtitles.srt", srtContent);
+      if (project.srtContent && project.srtContent.trim().length > 0) {
+        console.log("[render] writing existing srt content, length:", project.srtContent.length, "chars");
+        await sandbox.files.write("/home/user/public/reelful-fast.srt", project.srtContent);
+        await sandbox.files.write("/home/user/public/media/subtitles.srt", project.srtContent);
+        console.log("[render] srt files written");
+      } else {
+        console.log("[render] no srt content found, skipping srt file creation");
+      }
 
       if (project.audioUrl) {
         const audioResponse = await fetch(project.audioUrl);
