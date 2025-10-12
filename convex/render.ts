@@ -222,7 +222,7 @@ composition should be portrait!`;
         details: "running bun remotion render",
       });
 
-      const renderProcess = sandbox.commands.run(
+      const remotionResult = await sandbox.commands.run(
         `bun remotion render`,
         { 
           cwd: "/home/user",
@@ -230,21 +230,6 @@ composition should be portrait!`;
           requestTimeoutMs: 3600000,
         }
       );
-
-      const progressInterval = setInterval(async () => {
-        try {
-          const psResult = await sandbox.commands.run(
-            `ps aux | grep "remotion render" | grep -v grep || echo "process not found"`,
-            { timeoutMs: 30000 }
-          );
-          console.log("[render] remotion process check:", psResult.stdout);
-        } catch (error) {
-          console.log("[render] progress check failed:", error);
-        }
-      }, 30000);
-
-      const remotionResult = await renderProcess;
-      clearInterval(progressInterval);
 
       console.log("[render] remotion exit code:", remotionResult.exitCode);
       console.log("[render] remotion stdout:", remotionResult.stdout);
