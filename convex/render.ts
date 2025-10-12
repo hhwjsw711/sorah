@@ -100,10 +100,11 @@ export const renderVideo = action({
       await sandbox.commands.run("mkdir -p /home/user/public/media /home/user/public/reelful");
       console.log("[render] media directories created");
       
-      console.log("[render] creating placeholder files...");
-      await sandbox.files.write("/home/user/public/reelful-fast.srt", "");
-      await sandbox.files.write("/home/user/public/media/subtitles.srt", "");
-      console.log("[render] placeholder files created");
+      console.log("[render] creating srt files...");
+      const srtContent = project.srtContent || "";
+      await sandbox.files.write("/home/user/public/reelful-fast.srt", srtContent);
+      await sandbox.files.write("/home/user/public/media/subtitles.srt", srtContent);
+      console.log("[render] srt files created, length:", srtContent.length, "chars");
 
       console.log("[render] uploading media files...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
