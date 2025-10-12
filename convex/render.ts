@@ -402,6 +402,87 @@ composition should be portrait!`;
   },
 });
 
+export const getPipelineStatus = action({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { projectId }): Promise<{
+    sandboxExists: boolean;
+    sandboxAlive: boolean;
+    mediaUploaded: boolean;
+    sequenceCreated: boolean;
+    videoRendered: boolean;
+  }> => {
+    const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+    if (!project) {
+      return {
+        sandboxExists: false,
+        sandboxAlive: false,
+        mediaUploaded: false,
+        sequenceCreated: false,
+        videoRendered: false,
+      };
+    }
+
+    if (!project.sandboxId) {
+      return {
+        sandboxExists: false,
+        sandboxAlive: false,
+        mediaUploaded: false,
+        sequenceCreated: false,
+        videoRendered: false,
+      };
+    }
+
+    try {
+      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 30000 });
+      
+      // check if sandbox is alive
+      try {
+        await sandbox.commands.run("echo alive", { timeoutMs: 10000 });
+      } catch {
+        return {
+          sandboxExists: true,
+          sandboxAlive: false,
+          mediaUploaded: false,
+          sequenceCreated: false,
+          videoRendered: false,
+        };
+      }
+
+      // check if media files are uploaded
+      const mediaCheck = await sandbox.commands.run("ls /home/user/public/media/ 2>/dev/null | wc -l");
+      const mediaCount = parseInt(mediaCheck.stdout.trim() || "0");
+      const mediaUploaded = mediaCount > 0;
+
+      // check if composition exists (claude finished)
+      const compositionCheck = await sandbox.commands.run("ls /home/user/src/ 2>/dev/null | grep -i composition | wc -l");
+      const compositionCount = parseInt(compositionCheck.stdout.trim() || "0");
+      const sequenceCreated = compositionCount > 0;
+
+      // check if video is rendered
+      const videoCheck = await sandbox.commands.run("ls /home/user/out/Main.mp4 2>/dev/null");
+      const videoRendered = videoCheck.exitCode === 0;
+
+      return {
+        sandboxExists: true,
+        sandboxAlive: true,
+        mediaUploaded,
+        sequenceCreated,
+        videoRendered,
+      };
+    } catch (error) {
+      return {
+        sandboxExists: true,
+        sandboxAlive: false,
+        mediaUploaded: false,
+        sequenceCreated: false,
+        videoRendered: false,
+      };
+    }
+  },
+});
+
 export const getSandboxInfo = action({
   args: {
     sandboxId: v.string(),
