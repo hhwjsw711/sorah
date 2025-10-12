@@ -678,3 +678,43 @@ export const updateSandboxStatus = mutation({
     await ctx.db.patch(id, { sandboxStatus: status });
   },
 });
+
+export const animateSingleImage = action({
+  args: {
+    imageUrl: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, { imageUrl, projectId }) => {
+    console.log("[animate-single] animating image:", imageUrl);
+    
+    try {
+      const animateResult = await ctx.runAction(api.aiServices.animateImage, {
+        imageUrl,
+      });
+
+      if (animateResult.success && animateResult.data) {
+        const videoUrl = (animateResult.data).video?.url;
+        if (videoUrl) {
+          const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
+          const existingVideos = project?.videoUrls || [];
+          
+          await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+            id: projectId,
+            videoUrls: [...existingVideos, videoUrl],
+          });
+          
+          console.log("[animate-single] animation added to project");
+          return { success: true, videoUrl };
+        }
+      }
+
+      throw new Error(animateResult.error || "animation failed");
+    } catch (error) {
+      console.error("[animate-single] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "animation failed",
+      };
+    }
+  },
+});
