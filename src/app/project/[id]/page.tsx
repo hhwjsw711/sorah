@@ -22,6 +22,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const generateUploadUrl = useMutation(api.tasks.generateUploadUrl);
   const addFilesToProject = useMutation(api.tasks.addFilesToProject);
   const getSandboxInfo = useAction(api.render.getSandboxInfo);
+  const createSequence = useAction(api.render.createSequence);
+  const renderFinalVideo = useAction(api.render.renderFinalVideo);
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
   const readSandboxFile = useAction(api.render.readSandboxFile);
@@ -47,6 +49,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [savingScript, setSavingScript] = useState(false);
   const [saveScriptError, setSaveScriptError] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [sandboxAlive, setSandboxAlive] = useState(false);
+  const [creatingSequence, setCreatingSequence] = useState(false);
+  const [renderingFinal, setRenderingFinal] = useState(false);
 
   useEffect(() => {
     if (isEditingScript) return;
@@ -85,6 +90,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       
       if (outResult.success && "files" in outResult) {
         setOutFiles(outResult.files || []);
+        setSandboxAlive(true);
+      } else {
+        setSandboxAlive(false);
       }
       if (mediaResult.success && "files" in mediaResult) {
         setMediaFiles(mediaResult.files || []);
@@ -94,9 +102,30 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const checkSandboxStatus = async () => {
+    if (!project?.sandboxId) {
+      setSandboxAlive(false);
+      return;
+    }
+    
+    try {
+      const result = await runSandboxCommand({
+        sandboxId: project.sandboxId,
+        command: "echo alive",
+      });
+      const isAlive = result.success && result.exitCode === 0;
+      setSandboxAlive(isAlive);
+      return isAlive;
+    } catch {
+      setSandboxAlive(false);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (project?.sandboxId) {
       loadFiles();
+      checkSandboxStatus();
     }
   }, [project?.sandboxId]);
 
@@ -563,6 +592,95 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   label: "Sandbox State",
                   content: (
                     <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className={`p-6 rounded-xl border-2 ${sandboxAlive ? 'bg-green-50 border-green-300' : project.sandboxId ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50 border-gray-200'}`}>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className={`text-3xl ${sandboxAlive ? 'animate-pulse' : ''}`}>
+                              {sandboxAlive ? '🟢' : project.sandboxId ? '🟡' : '⚫'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-800">sandbox</p>
+                              <p className="text-xs text-gray-600">{sandboxAlive ? 'running' : project.sandboxId ? 'paused/dead' : 'not created'}</p>
+                            </div>
+                          </div>
+                          {sandboxAlive ? (
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(project.sandboxId!);
+                              }}
+                              className="mt-2 px-3 py-1 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition-colors text-xs w-full"
+                            >
+                              copy id
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                setCreatingSequence(true);
+                                try {
+                                  await createSequence({ projectId: id as Id<"projects"> });
+                                  await checkSandboxStatus();
+                                  await loadFiles();
+                                } finally {
+                                  setCreatingSequence(false);
+                                }
+                              }}
+                              disabled={creatingSequence}
+                              className="mt-2 px-3 py-1 bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg transition-colors text-xs w-full disabled:opacity-50"
+                            >
+                              {creatingSequence ? 'starting...' : project.sandboxId ? 'restart sandbox' : 'start sandbox'}
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className={`p-6 rounded-xl border-2 ${outFiles.some(f => f.name === 'Main.mp4') ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 border-gray-200'}`}>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="text-3xl">
+                              {outFiles.some(f => f.name === 'Main.mp4') ? '🎬' : '📭'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-800">output video</p>
+                              <p className="text-xs text-gray-600">{outFiles.some(f => f.name === 'Main.mp4') ? 'ready' : 'not rendered'}</p>
+                            </div>
+                          </div>
+                          {outFiles.some(f => f.name === 'Main.mp4') && project.sandboxId ? (
+                            <button
+                              onClick={async () => {
+                                const result = await getSandboxFileDownloadUrl({
+                                  sandboxId: project.sandboxId!,
+                                  filePath: '/home/user/out/Main.mp4',
+                                });
+                                if (result.success && 'downloadUrl' in result) {
+                                  setSelectedFile({
+                                    name: 'Main.mp4',
+                                    content: result.downloadUrl || '',
+                                    isText: false,
+                                  });
+                                }
+                              }}
+                              className="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs w-full"
+                            >
+                              preview video
+                            </button>
+                          ) : sandboxAlive && !outFiles.some(f => f.name === 'Main.mp4') ? (
+                            <button
+                              onClick={async () => {
+                                setRenderingFinal(true);
+                                try {
+                                  await renderFinalVideo({ projectId: id as Id<"projects"> });
+                                  await loadFiles();
+                                } finally {
+                                  setRenderingFinal(false);
+                                }
+                              }}
+                              disabled={renderingFinal}
+                              className="mt-2 px-3 py-1 bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg transition-colors text-xs w-full disabled:opacity-50"
+                            >
+                              {renderingFinal ? 'rendering...' : 'render sequence'}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                      
                       <div className="border-t pt-6">
                         {project.sandboxId ? (
                           <div className="space-y-6">
@@ -574,6 +692,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                     onClick={async () => {
                                       setLoadingSandbox(true);
                                       try {
+                                        await checkSandboxStatus();
                                         const result = await getSandboxInfo({ sandboxId: project.sandboxId! });
                                         setSandboxInfo(result as { outDirectory?: string; diskUsage?: string; error?: string });
                                       } finally {
@@ -692,13 +811,16 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                             <div>
                               <div className="flex items-center justify-between">
                                 <p className="text-sm font-medium text-gray-700 mb-3">media files (public/media/)</p>
-                                <button
-                                  onClick={loadFiles}
-                                  className="text-xs text-purple-600 hover:text-purple-800"
-                                  disabled={loadingFiles}
-                                >
-                                  refresh
-                                </button>
+                              <button
+                                onClick={async () => {
+                                  await checkSandboxStatus();
+                                  await loadFiles();
+                                }}
+                                className="text-xs text-purple-600 hover:text-purple-800"
+                                disabled={loadingFiles}
+                              >
+                                refresh
+                              </button>
                               </div>
                               {loadingFiles ? (
                                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 animate-pulse">
@@ -862,13 +984,13 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                   <video
                                     controls
                                     className="w-full rounded"
-                                    src={`data:video/mp4;base64,${selectedFile.content}`}
+                                    src={selectedFile.content.startsWith('http') ? selectedFile.content : `data:video/mp4;base64,${selectedFile.content}`}
                                   />
                                 ) : selectedFile.name.endsWith(".png") || selectedFile.name.endsWith(".jpg") || selectedFile.name.endsWith(".jpeg") ? (
                                   <img
                                     alt={selectedFile.name}
                                     className="w-full rounded"
-                                    src={`data:image/png;base64,${selectedFile.content}`}
+                                    src={selectedFile.content.startsWith('http') ? selectedFile.content : `data:image/png;base64,${selectedFile.content}`}
                                   />
                                 ) : (
                                   <div className="text-gray-400 text-xs">binary file preview not available</div>
