@@ -3,6 +3,11 @@ import { v } from "convex/values";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
+const isImageUrl = (url: string): boolean => {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+  return imageExtensions.some(ext => url.toLowerCase().includes(ext));
+};
+
 export const get = query({
   args: {},
   handler: async (ctx) => {
@@ -322,10 +327,10 @@ export const processProjectWithAI = action({
       }
 
       console.log("[ai-process] step 1: generating script");
-      const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
+      const fileUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
       const scriptResult = await ctx.runAction(api.aiServices.generateScript, {
         prompt: project.prompt,
-        imageUrls,
+        imageUrls: fileUrls,
       });
 
       if (!scriptResult.success) {
@@ -367,10 +372,11 @@ export const processProjectWithAI = action({
       }
 
       console.log("[ai-process] step 4: animating images");
-      for (let i = 0; i < Math.min(imageUrls.length, 3); i++) {
-        console.log(`[ai-process] animating image ${i + 1}/${imageUrls.length}`);
+      const imageOnlyUrls = fileUrls.filter(url => isImageUrl(url));
+      for (let i = 0; i < Math.min(imageOnlyUrls.length, 3); i++) {
+        console.log(`[ai-process] animating image ${i + 1}/${imageOnlyUrls.length}`);
         const animateResult = await ctx.runAction(api.aiServices.animateImage, {
-          imageUrl: imageUrls[i],
+          imageUrl: imageOnlyUrls[i],
         });
 
         if (animateResult.success && animateResult.data) {
@@ -537,7 +543,7 @@ export const regenerateAnimations = action({
         throw new Error("project not found");
       }
 
-      const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
+      const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null && isImageUrl(url)) || [];
       if (imageUrls.length === 0) {
         throw new Error("no images found");
       }
