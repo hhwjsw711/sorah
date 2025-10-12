@@ -684,7 +684,7 @@ export const animateSingleImage = action({
     imageUrl: v.string(),
     projectId: v.id("projects"),
   },
-  handler: async (ctx, { imageUrl, projectId }) => {
+  handler: async (ctx, { imageUrl, projectId }): Promise<{ success: boolean; videoUrl?: string; error?: string }> => {
     console.log("[animate-single] animating image:", imageUrl);
     
     try {
