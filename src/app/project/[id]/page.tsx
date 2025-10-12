@@ -24,6 +24,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const getSandboxInfo = useAction(api.render.getSandboxInfo);
   const createSequence = useAction(api.render.createSequence);
   const renderFinalVideo = useAction(api.render.renderFinalVideo);
+  const step1StartSandbox = useAction(api.render.step1StartSandbox);
+  const step2UploadFiles = useAction(api.render.step2UploadFiles);
+  const step3RunVideoEditor = useAction(api.render.step3RunVideoEditor);
+  const step4RenderSequence = useAction(api.render.step4RenderSequence);
   const runSandboxCommand = useAction(api.render.runSandboxCommand);
   const listSandboxFiles = useAction(api.render.listSandboxFiles);
   const readSandboxFile = useAction(api.render.readSandboxFile);
@@ -52,6 +56,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [sandboxAlive, setSandboxAlive] = useState(false);
   const [creatingSequence, setCreatingSequence] = useState(false);
   const [renderingFinal, setRenderingFinal] = useState(false);
+  const [step1Running, setStep1Running] = useState(false);
+  const [step2Running, setStep2Running] = useState(false);
+  const [step3Running, setStep3Running] = useState(false);
+  const [step4Running, setStep4Running] = useState(false);
 
   useEffect(() => {
     if (isEditingScript) return;
@@ -679,6 +687,134 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                             </button>
                           ) : null}
                         </div>
+                      </div>
+
+                      <div className="border-t pt-6">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">render pipeline</h3>
+                        <div className="space-y-3">
+                          <div className={`p-4 rounded-lg border-2 ${project.renderStep === 'creating_sandbox' ? 'bg-blue-50 border-blue-300 animate-pulse' : project.renderStep && ['uploading_media', 'editing_sequence', 'rendering_video', 'completed'].includes(project.renderStep) ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl">{project.renderStep && ['uploading_media', 'editing_sequence', 'rendering_video', 'completed'].includes(project.renderStep) ? '✅' : project.renderStep === 'creating_sandbox' ? '⏳' : '1️⃣'}</span>
+                                <div>
+                                  <p className="font-medium text-gray-800">start sandbox</p>
+                                  <p className="text-xs text-gray-600">create/connect to e2b environment</p>
+                                </div>
+                              </div>
+                              {(!project.renderStep || project.renderStep === 'not_started' || project.renderStep === 'failed') && (
+                                <button
+                                  onClick={async () => {
+                                    setStep1Running(true);
+                                    try {
+                                      await step1StartSandbox({ projectId: id as Id<"projects"> });
+                                      await checkSandboxStatus();
+                                    } finally {
+                                      setStep1Running(false);
+                                    }
+                                  }}
+                                  disabled={step1Running}
+                                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
+                                >
+                                  {step1Running ? 'starting...' : 'run'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className={`p-4 rounded-lg border-2 ${project.renderStep === 'uploading_media' ? 'bg-blue-50 border-blue-300 animate-pulse' : project.renderStep && ['editing_sequence', 'rendering_video', 'completed'].includes(project.renderStep) ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl">{project.renderStep && ['editing_sequence', 'rendering_video', 'completed'].includes(project.renderStep) ? '✅' : project.renderStep === 'uploading_media' ? '⏳' : '2️⃣'}</span>
+                                <div>
+                                  <p className="font-medium text-gray-800">upload files</p>
+                                  <p className="text-xs text-gray-600">transfer media, audio, srt to sandbox</p>
+                                </div>
+                              </div>
+                              {project.renderStep === 'creating_sandbox' && sandboxAlive && (
+                                <button
+                                  onClick={async () => {
+                                    setStep2Running(true);
+                                    try {
+                                      await step2UploadFiles({ projectId: id as Id<"projects"> });
+                                      await loadFiles();
+                                    } finally {
+                                      setStep2Running(false);
+                                    }
+                                  }}
+                                  disabled={step2Running}
+                                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
+                                >
+                                  {step2Running ? 'uploading...' : 'run'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className={`p-4 rounded-lg border-2 ${project.renderStep === 'editing_sequence' ? 'bg-blue-50 border-blue-300 animate-pulse' : project.renderStep && ['rendering_video', 'completed'].includes(project.renderStep) ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl">{project.renderStep && ['rendering_video', 'completed'].includes(project.renderStep) ? '✅' : project.renderStep === 'editing_sequence' ? '⏳' : '3️⃣'}</span>
+                                <div>
+                                  <p className="font-medium text-gray-800">run video editor</p>
+                                  <p className="text-xs text-gray-600">claude analyzes footage and creates composition</p>
+                                </div>
+                              </div>
+                              {project.renderStep === 'uploading_media' && (
+                                <button
+                                  onClick={async () => {
+                                    setStep3Running(true);
+                                    try {
+                                      await step3RunVideoEditor({ projectId: id as Id<"projects"> });
+                                      await loadFiles();
+                                    } finally {
+                                      setStep3Running(false);
+                                    }
+                                  }}
+                                  disabled={step3Running}
+                                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
+                                >
+                                  {step3Running ? 'editing...' : 'run'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className={`p-4 rounded-lg border-2 ${project.renderStep === 'rendering_video' ? 'bg-blue-50 border-blue-300 animate-pulse' : project.renderStep === 'completed' ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl">{project.renderStep === 'completed' ? '✅' : project.renderStep === 'rendering_video' ? '⏳' : '4️⃣'}</span>
+                                <div>
+                                  <p className="font-medium text-gray-800">render sequence</p>
+                                  <p className="text-xs text-gray-600">run bun remotion render</p>
+                                </div>
+                              </div>
+                              {project.renderStep === 'editing_sequence' && (
+                                <button
+                                  onClick={async () => {
+                                    setStep4Running(true);
+                                    try {
+                                      await step4RenderSequence({ projectId: id as Id<"projects"> });
+                                      await loadFiles();
+                                    } finally {
+                                      setStep4Running(false);
+                                    }
+                                  }}
+                                  disabled={step4Running}
+                                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-xs disabled:opacity-50"
+                                >
+                                  {step4Running ? 'rendering...' : 'run'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {project.renderStep === 'failed' && project.renderError && (
+                          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-sm font-medium text-red-700">error</p>
+                            <p className="text-xs text-red-600 mt-1">{project.renderError}</p>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="border-t pt-6">
