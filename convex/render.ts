@@ -253,13 +253,11 @@ composition should be portrait!`;
       const findResult = await sandbox.commands.run("find /home/user/out -name '*.mp4' 2>/dev/null || echo 'no mp4 files found'");
       console.log("[render] mp4 files in out/:", findResult.stdout);
 
-      console.log("[render] reading output video...");
-      let outputVideo;
+      console.log("[render] checking output video exists...");
       const videoPath = "/home/user/out/Main.mp4";
       
-      try {
-        outputVideo = await sandbox.files.read(videoPath);
-      } catch {
+      const statResult = await sandbox.commands.run(`stat "${videoPath}" 2>&1`);
+      if (statResult.exitCode !== 0) {
         console.log("[render] Main.mp4 not found");
         const claudeOutput = claudeResult.stdout || "";
         const hasMemoryError = claudeOutput.includes("memory") || claudeOutput.includes("killed");
@@ -271,28 +269,51 @@ composition should be portrait!`;
         throw new Error(`output video not found at ${videoPath}. retry rendering with 'bun remotion render'`);
       }
       
-      if (!outputVideo) {
-        throw new Error("output video is empty. retry rendering with 'bun remotion render'");
-      }
-      const outputSize = typeof outputVideo === 'string' ? outputVideo.length : (outputVideo as ArrayBuffer).byteLength;
-      console.log("[render] output video size:", outputSize, "from path:", videoPath);
+      const sizeResult = await sandbox.commands.run(`stat -f%z "${videoPath}" 2>/dev/null || stat -c%s "${videoPath}" 2>/dev/null`);
+      const outputSize = parseInt(sizeResult.stdout.trim() || "0");
+      console.log("[render] output video size:", outputSize, "bytes at path:", videoPath);
       
       if (outputSize === 0 || outputSize < 1000) {
         throw new Error(`output video is too small (${outputSize} bytes). retry rendering with 'bun remotion render'`);
+      }
+
+      console.log("[render] generating download url for output video...");
+      const downloadUrl = await sandbox.downloadUrl(videoPath, {
+        useSignatureExpiration: 300000,
+      });
+      console.log("[render] download url generated, fetching file...");
+
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "downloading video",
+        details: "fetching rendered file from sandbox",
+      });
+
+      const videoResponse = await fetch(downloadUrl);
+      if (!videoResponse.ok) {
+        throw new Error(`failed to download video: ${videoResponse.statusText}`);
+      }
+      
+      const videoBuffer = await videoResponse.arrayBuffer();
+      const actualSize = videoBuffer.byteLength;
+      console.log("[render] video downloaded, size:", actualSize, "bytes");
+
+      if (actualSize < 1000) {
+        throw new Error(`output video is too small (${actualSize} bytes). retry rendering with 'bun remotion render'`);
       }
 
       console.log("[render] uploading to convex storage...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
         step: "saving video",
-        details: "uploading final video to storage",
+        details: "uploading to permanent storage",
       });
-      
+
       const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const uploadResponse: Response = await fetch(uploadUrl, {
         method: "POST",
         headers: { "Content-Type": "video/mp4" },
-        body: outputVideo,
+        body: videoBuffer,
       });
       const { storageId }: { storageId: Id<"_storage"> } = await uploadResponse.json();
       const renderedVideoUrl: string | null = await ctx.storage.getUrl(storageId);
@@ -314,10 +335,6 @@ composition should be portrait!`;
       }
       
       return { success: true, renderedVideoUrl };
-    } catch (error) {
-      console.error("[render] error:", error);
-      await ctx.runMutation(api.tasks.updateProjectWithRenderResult, {
-        id: projectId,
         error: error instanceof Error ? error.message : "render failed",
         status: "failed",
       });
