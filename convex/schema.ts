@@ -9,6 +9,12 @@ export default defineSchema({
   projects: defineTable({
     prompt: v.string(),
     files: v.array(v.id("_storage")),
+    fileMetadata: v.optional(v.array(v.object({
+      storageId: v.id("_storage"),
+      filename: v.string(),
+      contentType: v.string(),
+      size: v.number(),
+    }))),
     thumbnail: v.optional(v.id("_storage")),
     createdAt: v.number(),
     status: v.optional(

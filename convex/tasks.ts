@@ -26,12 +26,19 @@ export const createProject = mutation({
   args: {
     prompt: v.string(),
     files: v.array(v.id("_storage")),
+    fileMetadata: v.optional(v.array(v.object({
+      storageId: v.id("_storage"),
+      filename: v.string(),
+      contentType: v.string(),
+      size: v.number(),
+    }))),
     thumbnail: v.optional(v.id("_storage")),
   },
-  handler: async (ctx, { prompt, files, thumbnail }) => {
+  handler: async (ctx, { prompt, files, fileMetadata, thumbnail }) => {
     return await ctx.db.insert("projects", {
       prompt,
       files,
+      fileMetadata,
       thumbnail: thumbnail || files[0],
       createdAt: Date.now(),
       status: "processing",

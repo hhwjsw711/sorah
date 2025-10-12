@@ -113,6 +113,25 @@ export const renderVideo = action({
         details: "transferring files to sandbox",
       });
       
+      if (project.fileMetadata && project.fileMetadata.length > 0) {
+        console.log("[render] uploading original files...");
+        for (let i = 0; i < project.fileMetadata.length; i++) {
+          const fileMeta = project.fileMetadata[i];
+          const fileUrl = await ctx.storage.getUrl(fileMeta.storageId);
+          if (!fileUrl) continue;
+          
+          console.log(`[render] fetching file ${i}: ${fileMeta.filename}`);
+          const response = await fetch(fileUrl);
+          const buffer = await response.arrayBuffer();
+          
+          const extension = fileMeta.filename.split('.').pop() || 'file';
+          const sandboxPath = `/home/user/public/media/${fileMeta.filename}`;
+          await sandbox.files.write(sandboxPath, buffer);
+          console.log(`[render] uploaded ${fileMeta.filename} (${buffer.byteLength} bytes)`);
+        }
+      }
+      
+      
       if (project.audioUrl && project.audioUrl.includes("example.com")) {
         throw new Error("Cannot render: audioUrl (voiceover) is a simulated example.com URL. Please run AI processing first to generate real media files.");
       }

@@ -26,6 +26,7 @@ export default function Upload() {
       console.log("uploading files:", files.length);
       
       const fileIds = [];
+      const fileMetadata = [];
       for (const file of files) {
         console.log("uploading:", file.name, file.size);
         const uploadUrl = await generateUploadUrl();
@@ -37,6 +38,12 @@ export default function Upload() {
         const { storageId } = await result.json();
         console.log("uploaded:", storageId);
         fileIds.push(storageId);
+        fileMetadata.push({
+          storageId,
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+        });
       }
 
       console.log("creating project with", fileIds.length, "files");
@@ -51,6 +58,7 @@ export default function Upload() {
       const newProjectId = await createProject({ 
         prompt, 
         files: fileIds,
+        fileMetadata,
         thumbnail: fileIds[thumbnailFileIndex],
       });
       console.log("created project:", newProjectId);
