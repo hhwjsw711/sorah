@@ -305,8 +305,11 @@ export const generateScript = action({
         prompt,
       });
 
+      // Replace single ? with ???
+      const processedScript = text.replace(/\?/g, '???');
+
       console.log("[script] script generated");
-      return { success: true, script: text };
+      return { success: true, script: processedScript };
     } catch (error) {
       console.error("[script] error:", error);
       return {
