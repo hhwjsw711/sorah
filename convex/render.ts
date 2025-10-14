@@ -539,7 +539,7 @@ export const runSandboxCommand = action({
       
       const result = await sandbox.commands.run(command, {
         cwd: "/home/user",
-        timeoutMs: 30000,
+        timeoutMs: 3_600_000,
       });
       
       return {
