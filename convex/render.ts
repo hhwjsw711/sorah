@@ -62,6 +62,8 @@ export const renderVideo = action({
             },
           });
 
+          sandbox.setTimeout(3600000);
+
           console.log("[render] new sandbox created:", sandbox.sandboxId);
           
           await ctx.runMutation(api.tasks.updateProjectSandbox, {
@@ -84,6 +86,9 @@ export const renderVideo = action({
             CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
           },
         });
+
+        sandbox.setTimeout(3600000);
+
         console.log("[render] sandbox created:", sandbox.sandboxId);
 
         await ctx.runMutation(api.tasks.updateProjectSandbox, {
@@ -735,6 +740,9 @@ export const createSequence = action({
           timeoutMs: 3600000,
           envs: { CLAUDE_CODE_OAUTH_TOKEN: claudeToken },
         });
+
+        sandbox.setTimeout(3600000);
+
         console.log("[sequence] sandbox created:", sandbox.sandboxId);
         
         await ctx.runMutation(api.tasks.updateProjectSandbox, {
@@ -964,6 +972,9 @@ export const step1StartSandbox = action({
           timeoutMs: 3600000,
           envs: { CLAUDE_CODE_OAUTH_TOKEN: claudeToken },
         });
+
+        sandbox.setTimeout(3600000);
+
         console.log("[step1] sandbox created:", sandbox.sandboxId);
         
         await ctx.runMutation(api.tasks.updateProjectSandbox, {
