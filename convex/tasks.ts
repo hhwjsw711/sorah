@@ -280,11 +280,7 @@ export const simulateCompleted = mutation({
         "this is a simulated script. ever wonder how top businesses save 10 hours a week? meet our product, the game-changing automation platform that helps you work smarter, not harder. join thousands of happy users today!",
       audioUrl: "https://example.com/audio.mp3",
       musicUrl: "https://example.com/music.mp3",
-      videoUrls: [
-        "https://example.com/video1.mp4",
-        "https://example.com/video2.mp4",
-        "https://example.com/video3.mp4",
-      ],
+      videoUrls: [],
     });
     return id;
   },
