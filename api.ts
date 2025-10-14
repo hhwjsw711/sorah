@@ -29,6 +29,21 @@ export type PublicApiType = {
       },
       any
     >;
+    addFilesToProject: FunctionReference<
+      "mutation",
+      "public",
+      {
+        fileMetadata: Array<{
+          contentType: string;
+          filename: string;
+          size: number;
+          storageId: Id<"_storage">;
+        }>;
+        files: Array<Id<"_storage">>;
+        projectId: Id<"projects">;
+      },
+      any
+    >;
     getProjects: FunctionReference<
       "query",
       "public",
@@ -136,6 +151,12 @@ export type PublicApiType = {
       { projectId: Id<"projects"> },
       any
     >;
+    addAnimatedVideo: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects">; videoUrl: string },
+      any
+    >;
     regenerateAnimations: FunctionReference<
       "action",
       "public",
@@ -191,6 +212,12 @@ export type PublicApiType = {
       { folderPath: string; sandboxId: string },
       any
     >;
+    getPipelineStatus: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
     getSandboxFileDownloadUrl: FunctionReference<
       "action",
       "public",
@@ -225,6 +252,30 @@ export type PublicApiType = {
       "action",
       "public",
       { command: string; sandboxId: string },
+      any
+    >;
+    step1StartSandbox: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+    step2UploadFiles: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+    step3RunVideoEditor: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
+      any
+    >;
+    step4RenderSequence: FunctionReference<
+      "action",
+      "public",
+      { projectId: Id<"projects"> },
       any
     >;
     renderVideo: FunctionReference<
