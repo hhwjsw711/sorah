@@ -9,11 +9,6 @@ export type ProjectDoc = {
   audioUrl?: string | null;
   musicUrl?: string | null;
   videoUrls?: string[] | null;
-  videoAnnotations?: {
-    videoUrl: string;
-    annotation: string;
-    frameUrl?: string;
-  }[] | null;
   srtContent?: string | null;
   fileUrls?: (string | null)[];
   renderedVideoUrl?: string | null;

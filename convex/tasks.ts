@@ -253,21 +253,6 @@ export const updateProjectSandbox = mutation({
   },
 });
 
-export const updateProjectVideoAnnotations = mutation({
-  args: {
-    id: v.id("projects"),
-    videoAnnotations: v.array(v.object({
-      videoUrl: v.string(),
-      annotation: v.string(),
-      frameUrl: v.optional(v.string()),
-    })),
-  },
-  handler: async (ctx, { id, videoAnnotations }) => {
-    await ctx.db.patch(id, { videoAnnotations });
-    return id;
-  },
-});
-
 export const simulateCompleted = mutation({
   args: {
     id: v.id("projects"),
@@ -797,70 +782,6 @@ export const animateSingleImage = action({
       return {
         success: false,
         error: error instanceof Error ? error.message : "animation failed",
-      };
-    }
-  },
-});
-
-export const annotateProjectVideos = action({
-  args: {
-    projectId: v.id("projects"),
-  },
-  handler: async (ctx, { projectId }): Promise<{ success: boolean; annotationCount?: number; totalVideos?: number; error?: string }> => {
-    console.log("[annotate] starting annotation for project:", projectId);
-    
-    try {
-      const project: {
-        videoUrls?: string[];
-      } | null = await ctx.runQuery(api.tasks.getProject, { id: projectId });
-      if (!project) {
-        throw new Error("project not found");
-      }
-
-      if (!project.videoUrls || project.videoUrls.length === 0) {
-        return { success: false, error: "no videos to annotate" };
-      }
-
-      const videoAnnotations: { videoUrl: string; annotation: string; frameUrl?: string }[] = [];
-      
-      for (let i = 0; i < project.videoUrls.length; i++) {
-        const videoUrl = project.videoUrls[i];
-        console.log(`[annotate] processing video ${i + 1}/${project.videoUrls.length}`);
-        
-        const frameResult = await ctx.runAction(api.aiServices.extractVideoFramesAndAnnotate, {
-          videoUrl,
-        });
-        
-        if (frameResult.success && frameResult.annotation) {
-          videoAnnotations.push({
-            videoUrl,
-            annotation: frameResult.annotation,
-            frameUrl: frameResult.frameUrls?.[0] || undefined,
-          });
-          console.log(`[annotate] video ${i + 1}: ${frameResult.annotation}`);
-        } else {
-          console.log(`[annotate] failed to annotate video ${i + 1}:`, frameResult.error);
-        }
-      }
-      
-      if (videoAnnotations.length > 0) {
-        await ctx.runMutation(api.tasks.updateProjectVideoAnnotations, {
-          id: projectId,
-          videoAnnotations,
-        });
-        console.log(`[annotate] saved ${videoAnnotations.length} annotations to database`);
-      }
-      
-      return { 
-        success: true, 
-        annotationCount: videoAnnotations.length,
-        totalVideos: project.videoUrls.length 
-      };
-    } catch (error) {
-      console.error("[annotate] error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "annotation failed",
       };
     }
   },

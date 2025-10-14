@@ -31,11 +31,6 @@ export default defineSchema({
     srtContent: v.optional(v.string()),
     musicUrl: v.optional(v.string()),
     videoUrls: v.optional(v.array(v.string())),
-    videoAnnotations: v.optional(v.array(v.object({
-      videoUrl: v.string(),
-      annotation: v.string(),
-      frameUrl: v.optional(v.string()),
-    }))),
     error: v.optional(v.string()),
     reelfulApiUrl: v.optional(v.string()),
     renderedVideoUrl: v.optional(v.string()),

@@ -21,11 +21,9 @@ export function MediaTabContent({ project, projectId }: MediaTabContentProps) {
   const addFilesToProject = useMutation(api.tasks.addFilesToProject);
   const animateImage = useAction(api.aiServices.animateImage);
   const addAnimatedVideo = useAction(api.tasks.addAnimatedVideo);
-  const annotateVideos = useAction(api.tasks.annotateProjectVideos);
 
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [animatingImageUrl, setAnimatingImageUrl] = useState<string | null>(null);
-  const [annotating, setAnnotating] = useState(false);
 
   const hasInputMedia =
     (project.fileUrls?.some((url) => Boolean(url)) ?? false) ||
@@ -143,21 +141,13 @@ export function MediaTabContent({ project, projectId }: MediaTabContentProps) {
                 </audio>
               </div>
             )}
-            {project.videoUrls?.map((url, index) => {
-              const annotation = project.videoAnnotations?.find(a => a.videoUrl === url);
-              return (
-                <div key={index} className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
-                  <div className="text-2xl mb-2">🎬</div>
-                  <p className="text-xs font-medium text-pink-900">video{index}.mp4</p>
-                  <p className="text-xs text-pink-600">animated</p>
-                  {annotation && (
-                    <p className="text-xs text-gray-600 mt-2 italic line-clamp-2" title={annotation.annotation}>
-                      {annotation.annotation}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {project.videoUrls?.map((url, index) => (
+              <div key={index} className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                <div className="text-2xl mb-2">🎬</div>
+                <p className="text-xs font-medium text-pink-900">video{index}.mp4</p>
+                <p className="text-xs text-pink-600">animated</p>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
@@ -168,75 +158,41 @@ export function MediaTabContent({ project, projectId }: MediaTabContentProps) {
 
       {(project.videoUrls?.length || 0) > 0 && (
         <div className="border-t pt-6">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm font-medium text-gray-700">generated media</p>
-              <p className="text-xs text-gray-500">ai-animated videos from images</p>
-            </div>
-            <button
-              onClick={async () => {
-                setAnnotating(true);
-                try {
-                  const result = await annotateVideos({ projectId });
-                  if (result.success) {
-                    alert(`annotated ${result.annotationCount} of ${result.totalVideos} videos`);
-                  } else {
-                    alert(`annotation failed: ${result.error}`);
-                  }
-                } catch (error) {
-                  console.error("annotate error:", error);
-                  alert("annotation failed");
-                } finally {
-                  setAnnotating(false);
-                }
-              }}
-              disabled={annotating}
-              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs disabled:opacity-50"
-            >
-              {annotating ? "annotating..." : "annotate videos"}
-            </button>
-          </div>
+          <p className="text-sm font-medium text-gray-700 mb-1">generated media</p>
+          <p className="text-xs text-gray-500 mb-3">ai-animated videos from images</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {project.videoUrls?.map((url, index) => {
-              const annotation = project.videoAnnotations?.find(a => a.videoUrl === url);
-              return (
-                <div key={index} className="relative group">
-                  <div className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
-                    <div
-                      className="w-full h-20 bg-pink-100 rounded mb-2 overflow-hidden"
-                      onMouseEnter={(event) => {
-                        const video = event.currentTarget.querySelector("video");
-                        if (video) video.play();
-                      }}
-                      onMouseLeave={(event) => {
-                        const video = event.currentTarget.querySelector("video");
-                        if (video) {
-                          video.pause();
-                          video.currentTime = 0;
-                        }
-                      }}
-                    >
-                      <video src={url} className="w-full h-full object-cover" muted loop />
-                    </div>
-                    <p className="text-xs font-medium text-pink-900">video {index + 1}</p>
-                    <p className="text-xs text-pink-600">🎬 animated</p>
-                    {annotation && (
-                      <p className="text-xs text-gray-600 mt-1 italic line-clamp-2" title={annotation.annotation}>
-                        {annotation.annotation}
-                      </p>
-                    )}
-                  </div>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute inset-0 bg-pink-600/90 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm font-medium"
+            {project.videoUrls?.map((url, index) => (
+              <div key={index} className="relative group">
+                <div className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                  <div
+                    className="w-full h-20 bg-pink-100 rounded mb-2 overflow-hidden"
+                    onMouseEnter={(event) => {
+                      const video = event.currentTarget.querySelector("video");
+                      if (video) video.play();
+                    }}
+                    onMouseLeave={(event) => {
+                      const video = event.currentTarget.querySelector("video");
+                      if (video) {
+                        video.pause();
+                        video.currentTime = 0;
+                      }
+                    }}
                   >
-                    view full
-                  </a>
+                    <video src={url} className="w-full h-full object-cover" muted loop />
+                  </div>
+                  <p className="text-xs font-medium text-pink-900">video {index + 1}</p>
+                  <p className="text-xs text-pink-600">🎬 animated</p>
                 </div>
-              );
-            })}
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute inset-0 bg-pink-600/90 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm font-medium"
+                >
+                  view full
+                </a>
+              </div>
+            ))}
           </div>
         </div>
       )}
