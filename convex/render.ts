@@ -444,7 +444,7 @@ export const getPipelineStatus = action({
         throw new Error("E2B_API_KEY not set");
       }
 
-      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 30000 });
+      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
       
       // check if sandbox is alive
       try {
@@ -535,7 +535,9 @@ export const runSandboxCommand = action({
         throw new Error("E2B_API_KEY not set");
       }
 
-      const sandbox = await Sandbox.connect(sandboxId);
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 3600000,
+      });
       
       const result = await sandbox.commands.run(command, {
         cwd: "/home/user",
@@ -568,7 +570,9 @@ export const listSandboxFiles = action({
         throw new Error("E2B_API_KEY not set");
       }
 
-      const sandbox = await Sandbox.connect(sandboxId);
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 3600000,
+      });
       
       const files = await sandbox.files.list(path);
       
@@ -600,7 +604,9 @@ export const readSandboxFile = action({
         throw new Error("E2B_API_KEY not set");
       }
 
-      const sandbox = await Sandbox.connect(sandboxId);
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 3600000,
+      });
       
       const content = await sandbox.files.read(filePath);
       
@@ -637,7 +643,9 @@ export const getSandboxFileDownloadUrl = action({
         throw new Error("E2B_API_KEY not set");
       }
 
-      const sandbox = await Sandbox.connect(sandboxId);
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 3600000,
+      });
       
       const downloadUrl = await sandbox.downloadUrl(filePath, {
         useSignatureExpiration: 300_000,
@@ -667,7 +675,9 @@ export const downloadSandboxFolder = action({
         throw new Error("E2B_API_KEY not set");
       }
 
-      const sandbox = await Sandbox.connect(sandboxId);
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 3600000,
+      });
       
       const result = await sandbox.commands.run(
         `cd ${folderPath} && zip -r /tmp/folder.zip . && base64 /tmp/folder.zip`,
@@ -719,7 +729,7 @@ export const createSequence = action({
       if (project.sandboxId) {
         console.log("[sequence] attempting to connect to existing sandbox");
         try {
-          sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
+          sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
           console.log("[sequence] connected to existing sandbox");
         } catch {
           console.log("[sequence] sandbox is dead, creating new one");
@@ -861,7 +871,7 @@ export const renderFinalVideo = action({
       }
 
       console.log("[render-final] connecting to sandbox:", project.sandboxId);
-      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
+      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
 
       console.log("[render-final] running remotion render...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
@@ -956,7 +966,7 @@ export const step1StartSandbox = action({
       if (project.sandboxId) {
         console.log("[step1] trying to connect to existing sandbox:", project.sandboxId);
         try {
-          sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
+          sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
           await sandbox.commands.run("echo alive");
           console.log("[step1] existing sandbox is alive");
         } catch {
@@ -1018,7 +1028,7 @@ export const step2UploadFiles = action({
       if (!project) throw new Error("project not found");
       if (!project.sandboxId) throw new Error("sandbox not found");
 
-      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
+      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
 
       if (project.srtContent && project.srtContent.trim().length > 0) {
         console.log("[step2] uploading srt via storage");
@@ -1110,7 +1120,7 @@ export const step3RunVideoEditor = action({
       if (!project) throw new Error("project not found");
       if (!project.sandboxId) throw new Error("sandbox not found");
 
-      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
+      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
 
       const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
 
@@ -1170,7 +1180,7 @@ export const step4RenderSequence = action({
       if (!project) throw new Error("project not found");
       if (!project.sandboxId) throw new Error("sandbox not found");
 
-      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 60000 });
+      const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
 
       console.log("[step4] running bun remotion render...");
       const remotionResult = await sandbox.commands.run(`bun remotion render`, {
