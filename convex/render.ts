@@ -6,6 +6,24 @@ import { Sandbox } from "e2b";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
+// Helper function to sanitize filenames
+function sanitizeFilename(filename: string): string {
+  // Get file extension
+  const lastDotIndex = filename.lastIndexOf('.');
+  const name = lastDotIndex > 0 ? filename.substring(0, lastDotIndex) : filename;
+  const ext = lastDotIndex > 0 ? filename.substring(lastDotIndex) : '';
+  
+  // Replace spaces with underscores, remove special characters except dots, dashes, and underscores
+  const sanitizedName = name
+    .replace(/\s+/g, '_')  // Replace spaces with underscores
+    .replace(/[^a-zA-Z0-9._-]/g, '');  // Remove special characters
+  
+  // Ensure the filename isn't empty
+  const finalName = sanitizedName || 'file';
+  
+  return finalName + ext;
+}
+
 export const renderVideo = action({
   args: {
     projectId: v.id("projects"),
@@ -141,13 +159,14 @@ export const renderVideo = action({
           const fileUrl = await ctx.storage.getUrl(fileMeta.storageId);
           if (!fileUrl) continue;
           
-          console.log(`[render] fetching file ${i}: ${fileMeta.filename}`);
+          const sanitizedFilename = sanitizeFilename(fileMeta.filename);
+          console.log(`[render] fetching file ${i}: ${fileMeta.filename} -> ${sanitizedFilename}`);
           const response = await fetch(fileUrl);
           const buffer = await response.arrayBuffer();
           
-          const sandboxPath = `/home/user/public/media/${fileMeta.filename}`;
+          const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
           await sandbox.files.write(sandboxPath, buffer);
-          console.log(`[render] uploaded ${fileMeta.filename} (${buffer.byteLength} bytes)`);
+          console.log(`[render] uploaded ${sanitizedFilename} (${buffer.byteLength} bytes)`);
         }
       } else if (project.files && project.files.length > 0) {
         console.log("[render] uploading original files (legacy, no metadata)...");
@@ -1110,12 +1129,14 @@ export const step2UploadFiles = action({
           const fileUrl = await ctx.storage.getUrl(fileMeta.storageId);
           if (!fileUrl) continue;
           
+          const sanitizedFilename = sanitizeFilename(fileMeta.filename);
+          console.log(`[step2] uploading ${fileMeta.filename} -> ${sanitizedFilename}`);
           const response = await fetch(fileUrl);
           const buffer = await response.arrayBuffer();
           
-          const sandboxPath = `/home/user/public/media/${fileMeta.filename}`;
+          const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
           await sandbox.files.write(sandboxPath, buffer);
-          console.log(`[step2] uploaded ${fileMeta.filename}`);
+          console.log(`[step2] uploaded ${sanitizedFilename}`);
         }
       }
 
