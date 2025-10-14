@@ -253,6 +253,21 @@ export const updateProjectSandbox = mutation({
   },
 });
 
+export const updateProjectVideoAnnotations = mutation({
+  args: {
+    id: v.id("projects"),
+    videoAnnotations: v.array(v.object({
+      videoUrl: v.string(),
+      annotation: v.string(),
+      frameUrl: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, { id, videoAnnotations }) => {
+    await ctx.db.patch(id, { videoAnnotations });
+    return id;
+  },
+});
+
 export const simulateCompleted = mutation({
   args: {
     id: v.id("projects"),

@@ -202,6 +202,7 @@ export const renderVideo = action({
       }
 
       let frameAnnotations = "";
+      const videoAnnotations: { videoUrl: string; annotation: string; frameUrl?: string }[] = [];
       if (project.videoUrls && project.videoUrls.length > 0) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           if (project.videoUrls[i].includes("example.com")) {
@@ -226,6 +227,11 @@ export const renderVideo = action({
           
           if (frameResult.success && frameResult.annotation) {
             frameAnnotations += `video${i}.mp4: ${frameResult.annotation}\n`;
+            videoAnnotations.push({
+              videoUrl: project.videoUrls[i],
+              annotation: frameResult.annotation,
+              frameUrl: frameResult.frameUrl || undefined,
+            });
             console.log(`[render] annotation for video ${i}: ${frameResult.annotation}`);
           }
           
@@ -238,6 +244,14 @@ export const renderVideo = action({
       
       await sandbox.files.write("/home/user/public/media/video-annotations.txt", frameAnnotations);
       console.log("[render] wrote video annotations to sandbox");
+      
+      if (videoAnnotations.length > 0) {
+        await ctx.runMutation(api.tasks.updateProjectVideoAnnotations, {
+          id: projectId,
+          videoAnnotations,
+        });
+        console.log("[render] saved video annotations to database");
+      }
 
       console.log("[render] running claude agent to edit video...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
@@ -806,6 +820,7 @@ export const createSequence = action({
       }
 
       let frameAnnotations = "";
+      const videoAnnotations: { videoUrl: string; annotation: string; frameUrl?: string }[] = [];
       if (project.videoUrls && project.videoUrls.length > 0) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           const videoResponse = await fetch(project.videoUrls[i]);
@@ -819,6 +834,11 @@ export const createSequence = action({
           
           if (frameResult.success && frameResult.annotation) {
             frameAnnotations += `video${i}.mp4: ${frameResult.annotation}\n`;
+            videoAnnotations.push({
+              videoUrl: project.videoUrls[i],
+              annotation: frameResult.annotation,
+              frameUrl: frameResult.frameUrl || undefined,
+            });
             console.log(`[sequence] annotation for video ${i}: ${frameResult.annotation}`);
           }
           
@@ -830,6 +850,14 @@ export const createSequence = action({
 
       await sandbox.files.write("/home/user/public/media/video-annotations.txt", frameAnnotations);
       console.log("[sequence] wrote video annotations to sandbox");
+      
+      if (videoAnnotations.length > 0) {
+        await ctx.runMutation(api.tasks.updateProjectVideoAnnotations, {
+          id: projectId,
+          videoAnnotations,
+        });
+        console.log("[sequence] saved video annotations to database");
+      }
 
       console.log("[sequence] running claude agent to edit video...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
@@ -1104,6 +1132,7 @@ export const step2UploadFiles = action({
       }
 
       let frameAnnotations = "";
+      const videoAnnotations: { videoUrl: string; annotation: string; frameUrl?: string }[] = [];
       if (project.videoUrls && project.videoUrls.length > 0) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           const videoResponse = await fetch(project.videoUrls[i]);
@@ -1117,6 +1146,11 @@ export const step2UploadFiles = action({
           
           if (frameResult.success && frameResult.annotation) {
             frameAnnotations += `video${i}.mp4: ${frameResult.annotation}\n`;
+            videoAnnotations.push({
+              videoUrl: project.videoUrls[i],
+              annotation: frameResult.annotation,
+              frameUrl: frameResult.frameUrl || undefined,
+            });
             console.log(`[step2] annotation for video ${i}: ${frameResult.annotation}`);
           }
           
@@ -1128,6 +1162,14 @@ export const step2UploadFiles = action({
 
       await sandbox.files.write("/home/user/public/media/video-annotations.txt", frameAnnotations);
       console.log("[step2] wrote video annotations to sandbox");
+      
+      if (videoAnnotations.length > 0) {
+        await ctx.runMutation(api.tasks.updateProjectVideoAnnotations, {
+          id: projectId,
+          videoAnnotations,
+        });
+        console.log("[step2] saved video annotations to database");
+      }
 
       return { success: true };
     } catch (error) {
