@@ -1255,3 +1255,152 @@ export const step4RenderSequence = action({
     }
   },
 });
+
+export const getSandboxPreviewUrl = action({
+  args: {
+    sandboxId: v.string(),
+    port: v.optional(v.number()),
+  },
+  handler: async (ctx, { sandboxId, port = 3000 }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 30000,
+      });
+
+      let previewUrl = sandbox.getHost(port);
+      
+      // Ensure the URL has a protocol (https://)
+      if (previewUrl && !previewUrl.startsWith('http://') && !previewUrl.startsWith('https://')) {
+        previewUrl = `https://${previewUrl}`;
+      }
+      
+      console.log("[getSandboxPreviewUrl] preview url for port", port, ":", previewUrl);
+
+      return {
+        success: true,
+        previewUrl,
+        port,
+      };
+    } catch (error) {
+      console.error("[getSandboxPreviewUrl] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to get preview url",
+      };
+    }
+  },
+});
+
+export const startDevServer = action({
+  args: {
+    sandboxId: v.string(),
+    command: v.optional(v.string()),
+    workDir: v.optional(v.string()),
+  },
+  handler: async (ctx, { sandboxId, command = "bun run dev", workDir = "/home/user" }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 30000,
+      });
+
+      console.log("[startDevServer] starting dev server with command:", command);
+      
+      // Start the dev server in background
+      const commandHandle = await sandbox.commands.run(command, {
+        background: true,
+        cwd: workDir,
+      });
+
+      console.log("[startDevServer] dev server started with pid:", commandHandle.pid);
+
+      return {
+        success: true,
+        pid: commandHandle.pid,
+        message: `Dev server started with command: ${command}`,
+      };
+    } catch (error) {
+      console.error("[startDevServer] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to start dev server",
+      };
+    }
+  },
+});
+
+export const checkProcessStatus = action({
+  args: {
+    sandboxId: v.string(),
+    processPattern: v.optional(v.string()),
+  },
+  handler: async (ctx, { sandboxId, processPattern = "bun" }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 30000,
+      });
+
+      // Check if process is running
+      const result = await sandbox.commands.run(`ps aux | grep "${processPattern}" | grep -v grep`);
+      
+      const isRunning = result.exitCode === 0 && result.stdout.trim().length > 0;
+      
+      return {
+        success: true,
+        isRunning,
+        processes: result.stdout.trim(),
+      };
+    } catch (error) {
+      console.error("[checkProcessStatus] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to check process status",
+      };
+    }
+  },
+});
+
+export const stopDevServer = action({
+  args: {
+    sandboxId: v.string(),
+    processPattern: v.optional(v.string()),
+  },
+  handler: async (ctx, { sandboxId, processPattern = "bun.*dev" }) => {
+    try {
+      if (!process.env.E2B_API_KEY) {
+        throw new Error("E2B_API_KEY not set");
+      }
+
+      const sandbox = await Sandbox.connect(sandboxId, {
+        timeoutMs: 30000,
+      });
+
+      console.log("[stopDevServer] stopping dev server matching pattern:", processPattern);
+      
+      // Kill processes matching the pattern
+      await sandbox.commands.run(`pkill -f "${processPattern}"`);
+
+      return {
+        success: true,
+        message: "Dev server stopped",
+      };
+    } catch (error) {
+      console.error("[stopDevServer] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "failed to stop dev server",
+      };
+    }
+  },
+});

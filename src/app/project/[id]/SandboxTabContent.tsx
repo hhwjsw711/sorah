@@ -38,6 +38,7 @@ export function SandboxTabContent({ project, projectId }: SandboxTabContentProps
   const readSandboxFile = useAction(api.render.readSandboxFile);
   const getSandboxFileDownloadUrl = useAction(api.render.getSandboxFileDownloadUrl);
   const downloadSandboxFolder = useAction(api.render.downloadSandboxFolder);
+  const getSandboxPreviewUrl = useAction(api.render.getSandboxPreviewUrl);
 
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus | null>(null);
   const [sandboxInfo, setSandboxInfo] = useState<SandboxInfo | null>(null);
@@ -55,6 +56,10 @@ export function SandboxTabContent({ project, projectId }: SandboxTabContentProps
   const [step2Running, setStep2Running] = useState(false);
   const [step3Running, setStep3Running] = useState(false);
   const [step4Running, setStep4Running] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewPort, setPreviewPort] = useState(3000);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const sandboxId = project.sandboxId;
 
@@ -87,6 +92,28 @@ export function SandboxTabContent({ project, projectId }: SandboxTabContentProps
       setLoadingFiles(false);
     }
   }, [listSandboxFiles, sandboxId]);
+
+  const loadPreviewUrl = useCallback(async (port: number = 3000) => {
+    if (!sandboxId) return;
+
+    setLoadingPreview(true);
+    try {
+      const result = await getSandboxPreviewUrl({ sandboxId, port });
+      if (result.success && "previewUrl" in result) {
+        let url = result.previewUrl || null;
+        // Ensure the URL has a protocol (https://)
+        if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+          url = `https://${url}`;
+        }
+        setPreviewUrl(url);
+        setShowPreview(true);
+      }
+    } catch (error) {
+      console.error("Failed to get preview URL:", error);
+    } finally {
+      setLoadingPreview(false);
+    }
+  }, [getSandboxPreviewUrl, sandboxId]);
 
   useEffect(() => {
     refreshPipelineStatus();
@@ -343,6 +370,52 @@ export function SandboxTabContent({ project, projectId }: SandboxTabContentProps
           </div>
         </div>
       </div>
+
+      {sandboxId && pipelineStatus?.sandboxAlive && (
+        <div className="border-t pt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold text-gray-800">sandbox preview</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={previewPort}
+                onChange={(e) => setPreviewPort(parseInt(e.target.value) || 3000)}
+                placeholder="Port"
+                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-lg"
+              />
+              <button
+                onClick={() => loadPreviewUrl(previewPort)}
+                disabled={loadingPreview}
+                className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50"
+              >
+                {loadingPreview ? "loading..." : "get preview"}
+              </button>
+              {showPreview && (
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  hide preview
+                </button>
+              )}
+            </div>
+          </div>
+          {showPreview && previewUrl ? (
+            <div className="bg-white rounded-lg border-2 border-purple-200 overflow-hidden">
+              <iframe
+                src={previewUrl}
+                className="w-full h-[600px] border-0"
+                title="Sandbox Preview"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-downloads"
+              />
+            </div>
+          ) : (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+              click "get preview" to load the sandbox preview (default port: 3000)
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="border-t pt-6">
         {sandboxId ? (

@@ -11,10 +11,40 @@ import Tabs from "@/components/Tabs";
 import { MediaTabContent } from "./MediaTabContent";
 import { SandboxTabContent } from "./SandboxTabContent";
 import { ScriptTabContent } from "./ScriptTabContent";
+import { PreviewTabContent } from "./PreviewTabContent";
 import type { ProjectDoc } from "./types";
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  
+  // Validate that the ID is a valid Convex ID (starts with a letter and contains only alphanumeric chars)
+  const isValidConvexId = /^[a-z][a-z0-9]{7,}$/.test(id);
+  
+  if (!isValidConvexId) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+        <div className="max-w-3xl mx-auto px-6 py-16">
+          <Link href="/" className="text-purple-600 hover:text-purple-700 mb-8 inline-block">
+            ← back to home
+          </Link>
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <div className="text-6xl mb-4">❌</div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">invalid project id</h1>
+            <p className="text-gray-600 mb-4">
+              the project id &quot;{id}&quot; is not valid
+            </p>
+            <Link
+              href="/"
+              className="inline-block px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+            >
+              go to home
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+  
   const projectId = id as Id<"projects">;
   const project = useQuery(api.tasks.getProject, { id: projectId }) as ProjectDoc | undefined;
   const renderVideo = useAction(api.render.renderVideo);
@@ -103,6 +133,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   id: "script",
                   label: "Script",
                   content: <ScriptTabContent project={project} projectId={projectId} />,
+                },
+                {
+                  id: "preview",
+                  label: "Preview",
+                  content: <PreviewTabContent project={project} projectId={projectId} />,
                 },
                 {
                   id: "sandbox",
