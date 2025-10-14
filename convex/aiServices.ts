@@ -319,3 +319,102 @@ export const generateScript = action({
     }
   },
 });
+
+export const extractVideoFrameAndAnnotate = action({
+  args: {
+    videoUrl: v.string(),
+  },
+  handler: async (ctx, { videoUrl }): Promise<{ success: boolean; frameUrl?: string | null; annotation?: string; error?: string }> => {
+    console.log("[frame-extract] extracting first frame from video:", videoUrl);
+    
+    try {
+      const ffmpegModule = await import("fluent-ffmpeg");
+      const ffmpeg = ffmpegModule.default;
+      const ffmpegInstaller = await import("@ffmpeg-installer/ffmpeg");
+      const fs = await import("fs");
+      const path = await import("path");
+      const os = await import("os");
+      
+      ffmpeg.setFfmpegPath(ffmpegInstaller.default.path);
+      
+      const tempDir = os.tmpdir();
+      const videoFilename = `video-${Date.now()}.mp4`;
+      const frameFilename = `frame-${Date.now()}.jpg`;
+      const videoPath = path.join(tempDir, videoFilename);
+      const framePath = path.join(tempDir, frameFilename);
+      
+      console.log("[frame-extract] downloading video to temp path:", videoPath);
+      const videoResponse = await fetch(videoUrl);
+      const videoBuffer = await videoResponse.arrayBuffer();
+      fs.writeFileSync(videoPath, Buffer.from(videoBuffer));
+      
+      console.log("[frame-extract] extracting frame at 0.5 seconds");
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(videoPath)
+          .screenshots({
+            timestamps: ['0.5'],
+            filename: frameFilename,
+            folder: tempDir,
+            size: '1080x1920'
+          })
+          .on('end', () => {
+            console.log("[frame-extract] frame extracted successfully");
+            resolve();
+          })
+          .on('error', (err: Error) => {
+            console.error("[frame-extract] ffmpeg error:", err);
+            reject(err);
+          });
+      });
+      
+      console.log("[frame-extract] uploading frame to storage");
+      const frameBuffer = fs.readFileSync(framePath);
+      const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const uploadResponse: Response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "image/jpeg" },
+        body: frameBuffer,
+      });
+      const { storageId } = await uploadResponse.json() as { storageId: string };
+      const frameUrl: string | null = await ctx.storage.getUrl(storageId);
+      
+      fs.unlinkSync(videoPath);
+      fs.unlinkSync(framePath);
+      
+      console.log("[frame-extract] analyzing frame with gpt-4o-mini");
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error("OPENAI_API_KEY not set");
+      }
+
+      const openai = createOpenAI({ apiKey });
+      
+      const { text: annotation } = await generateText({
+        model: openai("gpt-4o-mini"),
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "describe what you see in this video frame. be concise and focus on the main subject, action, and setting. this will be used to decide how to edit videos together." },
+              { type: "image", image: frameUrl as string }
+            ]
+          }
+        ]
+      });
+      
+      console.log("[frame-extract] annotation generated:", annotation);
+      
+      return { 
+        success: true, 
+        frameUrl,
+        annotation
+      };
+    } catch (error) {
+      console.error("[frame-extract] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "frame extraction failed",
+      };
+    }
+  },
+});

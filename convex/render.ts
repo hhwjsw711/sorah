@@ -201,6 +201,7 @@ export const renderVideo = action({
         await sandbox.files.write("/home/user/public/media/music.mp3", musicBuffer);
       }
 
+      let frameAnnotations = "";
       if (project.videoUrls && project.videoUrls.length > 0) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           if (project.videoUrls[i].includes("example.com")) {
@@ -218,12 +219,25 @@ export const renderVideo = action({
           
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
           
+          console.log(`[render] extracting frame and annotation for video ${i}`);
+          const frameResult = await ctx.runAction(api.aiServices.extractVideoFrameAndAnnotate, {
+            videoUrl: project.videoUrls[i],
+          });
+          
+          if (frameResult.success && frameResult.annotation) {
+            frameAnnotations += `video${i}.mp4: ${frameResult.annotation}\n`;
+            console.log(`[render] annotation for video ${i}: ${frameResult.annotation}`);
+          }
+          
           if (i === 0) {
             await sandbox.files.write(`/home/user/public/reelful/video_2025-10-10_18-12-33%20(2).mp4`, videoBuffer);
           }
         }
       }
       console.log("[render] files uploaded");
+      
+      await sandbox.files.write("/home/user/public/media/video-annotations.txt", frameAnnotations);
+      console.log("[render] wrote video annotations to sandbox");
 
       console.log("[render] running claude agent to edit video...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
@@ -234,7 +248,7 @@ export const renderVideo = action({
       
       const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
 
-read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
+read public/media/video-annotations.txt which contains descriptions of what's in each video. use the full videos in the composition.
 
 then decide on how to edit them together by emotion: ${project.prompt || 'create an engaging social media video'}
 
@@ -245,7 +259,7 @@ curl -X POST https://reels-srt.vercel.app/api/fireworks -F "file=@out/reelful.mp
 
 and save srt into the public/reelful.srt
 
-create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
+create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the annotations. start with the most interesting shot.
 
 we use bun btw
 
@@ -791,17 +805,31 @@ export const createSequence = action({
         await sandbox.files.write("/home/user/public/media/music.mp3", musicBuffer);
       }
 
+      let frameAnnotations = "";
       if (project.videoUrls && project.videoUrls.length > 0) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           const videoResponse = await fetch(project.videoUrls[i]);
           const videoBuffer = await videoResponse.arrayBuffer();
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
           
+          console.log(`[sequence] extracting frame and annotation for video ${i}`);
+          const frameResult = await ctx.runAction(api.aiServices.extractVideoFrameAndAnnotate, {
+            videoUrl: project.videoUrls[i],
+          });
+          
+          if (frameResult.success && frameResult.annotation) {
+            frameAnnotations += `video${i}.mp4: ${frameResult.annotation}\n`;
+            console.log(`[sequence] annotation for video ${i}: ${frameResult.annotation}`);
+          }
+          
           if (i === 0) {
             await sandbox.files.write(`/home/user/public/reelful/video_2025-10-10_18-12-33%20(2).mp4`, videoBuffer);
           }
         }
       }
+
+      await sandbox.files.write("/home/user/public/media/video-annotations.txt", frameAnnotations);
+      console.log("[sequence] wrote video annotations to sandbox");
 
       console.log("[sequence] running claude agent to edit video...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
@@ -812,7 +840,7 @@ export const createSequence = action({
       
       const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
 
-read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
+read public/media/video-annotations.txt which contains descriptions of what's in each video. use the full videos in the composition.
 
 then decide on how to edit them together by emotion: ${project.prompt || 'create an engaging social media video'}
 
@@ -823,7 +851,7 @@ curl -X POST https://reels-srt.vercel.app/api/fireworks -F "file=@out/reelful.mp
 
 and save srt into the public/reelful.srt
 
-create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
+create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the annotations. start with the most interesting shot.
 
 we use bun btw
 
@@ -1075,17 +1103,31 @@ export const step2UploadFiles = action({
         await sandbox.files.write("/home/user/public/media/music.mp3", musicBuffer);
       }
 
+      let frameAnnotations = "";
       if (project.videoUrls && project.videoUrls.length > 0) {
         for (let i = 0; i < project.videoUrls.length; i++) {
           const videoResponse = await fetch(project.videoUrls[i]);
           const videoBuffer = await videoResponse.arrayBuffer();
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
           
+          console.log(`[step2] extracting frame and annotation for video ${i}`);
+          const frameResult = await ctx.runAction(api.aiServices.extractVideoFrameAndAnnotate, {
+            videoUrl: project.videoUrls[i],
+          });
+          
+          if (frameResult.success && frameResult.annotation) {
+            frameAnnotations += `video${i}.mp4: ${frameResult.annotation}\n`;
+            console.log(`[step2] annotation for video ${i}: ${frameResult.annotation}`);
+          }
+          
           if (i === 0) {
             await sandbox.files.write(`/home/user/public/reelful/video_2025-10-10_18-12-33%20(2).mp4`, videoBuffer);
           }
         }
       }
+
+      await sandbox.files.write("/home/user/public/media/video-annotations.txt", frameAnnotations);
+      console.log("[step2] wrote video annotations to sandbox");
 
       return { success: true };
     } catch (error) {
@@ -1124,11 +1166,11 @@ export const step3RunVideoEditor = action({
 
       const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
 
-read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
+read public/media/video-annotations.txt which contains descriptions of what's in each video. use the full videos in the composition.
 
 then decide on how to edit them together by emotion: ${project.prompt || 'create an engaging social media video'}
 
-create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
+create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the annotations. start with the most interesting shot.
 
 we use bun btw
 
