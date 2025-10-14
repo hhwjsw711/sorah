@@ -21,9 +21,11 @@ export function MediaTabContent({ project, projectId }: MediaTabContentProps) {
   const addFilesToProject = useMutation(api.tasks.addFilesToProject);
   const animateImage = useAction(api.aiServices.animateImage);
   const addAnimatedVideo = useAction(api.tasks.addAnimatedVideo);
+  const annotateVideos = useAction(api.tasks.annotateProjectVideos);
 
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [animatingImageUrl, setAnimatingImageUrl] = useState<string | null>(null);
+  const [annotating, setAnnotating] = useState(false);
 
   const hasInputMedia =
     (project.fileUrls?.some((url) => Boolean(url)) ?? false) ||
@@ -166,8 +168,34 @@ export function MediaTabContent({ project, projectId }: MediaTabContentProps) {
 
       {(project.videoUrls?.length || 0) > 0 && (
         <div className="border-t pt-6">
-          <p className="text-sm font-medium text-gray-700 mb-1">generated media</p>
-          <p className="text-xs text-gray-500 mb-3">ai-animated videos from images</p>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">generated media</p>
+              <p className="text-xs text-gray-500">ai-animated videos from images</p>
+            </div>
+            <button
+              onClick={async () => {
+                setAnnotating(true);
+                try {
+                  const result = await annotateVideos({ projectId });
+                  if (result.success) {
+                    alert(`annotated ${result.annotationCount} of ${result.totalVideos} videos`);
+                  } else {
+                    alert(`annotation failed: ${result.error}`);
+                  }
+                } catch (error) {
+                  console.error("annotate error:", error);
+                  alert("annotation failed");
+                } finally {
+                  setAnnotating(false);
+                }
+              }}
+              disabled={annotating}
+              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs disabled:opacity-50"
+            >
+              {annotating ? "annotating..." : "annotate videos"}
+            </button>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {project.videoUrls?.map((url, index) => {
               const annotation = project.videoAnnotations?.find(a => a.videoUrl === url);

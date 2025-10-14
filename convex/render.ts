@@ -220,8 +220,8 @@ export const renderVideo = action({
           
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
           
-          console.log(`[render] extracting frame and annotation for video ${i}`);
-          const frameResult = await ctx.runAction(api.aiServices.extractVideoFrameAndAnnotate, {
+          console.log(`[render] extracting frames and annotation for video ${i}`);
+          const frameResult = await ctx.runAction(api.aiServices.extractVideoFramesAndAnnotate, {
             videoUrl: project.videoUrls[i],
           });
           
@@ -230,7 +230,7 @@ export const renderVideo = action({
             videoAnnotations.push({
               videoUrl: project.videoUrls[i],
               annotation: frameResult.annotation,
-              frameUrl: frameResult.frameUrl || undefined,
+              frameUrl: frameResult.frameUrls?.[0] || undefined,
             });
             console.log(`[render] annotation for video ${i}: ${frameResult.annotation}`);
           }
@@ -827,8 +827,8 @@ export const createSequence = action({
           const videoBuffer = await videoResponse.arrayBuffer();
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
           
-          console.log(`[sequence] extracting frame and annotation for video ${i}`);
-          const frameResult = await ctx.runAction(api.aiServices.extractVideoFrameAndAnnotate, {
+          console.log(`[sequence] extracting frames and annotation for video ${i}`);
+          const frameResult = await ctx.runAction(api.aiServices.extractVideoFramesAndAnnotate, {
             videoUrl: project.videoUrls[i],
           });
           
@@ -837,7 +837,7 @@ export const createSequence = action({
             videoAnnotations.push({
               videoUrl: project.videoUrls[i],
               annotation: frameResult.annotation,
-              frameUrl: frameResult.frameUrl || undefined,
+              frameUrl: frameResult.frameUrls?.[0] || undefined,
             });
             console.log(`[sequence] annotation for video ${i}: ${frameResult.annotation}`);
           }
@@ -1139,8 +1139,8 @@ export const step2UploadFiles = action({
           const videoBuffer = await videoResponse.arrayBuffer();
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
           
-          console.log(`[step2] extracting frame and annotation for video ${i}`);
-          const frameResult = await ctx.runAction(api.aiServices.extractVideoFrameAndAnnotate, {
+          console.log(`[step2] extracting frames and annotation for video ${i}`);
+          const frameResult = await ctx.runAction(api.aiServices.extractVideoFramesAndAnnotate, {
             videoUrl: project.videoUrls[i],
           });
           
@@ -1149,7 +1149,7 @@ export const step2UploadFiles = action({
             videoAnnotations.push({
               videoUrl: project.videoUrls[i],
               annotation: frameResult.annotation,
-              frameUrl: frameResult.frameUrl || undefined,
+              frameUrl: frameResult.frameUrls?.[0] || undefined,
             });
             console.log(`[step2] annotation for video ${i}: ${frameResult.annotation}`);
           }

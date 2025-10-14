@@ -418,3 +418,127 @@ export const extractVideoFrameAndAnnotate = action({
     }
   },
 });
+
+export const extractVideoFramesAndAnnotate = action({
+  args: {
+    videoUrl: v.string(),
+  },
+  handler: async (ctx, { videoUrl }): Promise<{ success: boolean; frameUrls?: string[]; annotation?: string; error?: string }> => {
+    console.log("[frames-extract] extracting frames every 1 second from video:", videoUrl);
+    
+    try {
+      const ffmpegModule = await import("fluent-ffmpeg");
+      const ffmpeg = ffmpegModule.default;
+      const ffmpegInstaller = await import("@ffmpeg-installer/ffmpeg");
+      const fs = await import("fs");
+      const path = await import("path");
+      const os = await import("os");
+      
+      ffmpeg.setFfmpegPath(ffmpegInstaller.default.path);
+      
+      const tempDir = os.tmpdir();
+      const videoFilename = `video-${Date.now()}.mp4`;
+      const videoPath = path.join(tempDir, videoFilename);
+      
+      console.log("[frames-extract] downloading video to temp path:", videoPath);
+      const videoResponse = await fetch(videoUrl);
+      const videoBuffer = await videoResponse.arrayBuffer();
+      fs.writeFileSync(videoPath, Buffer.from(videoBuffer));
+      
+      console.log("[frames-extract] getting video duration");
+      const duration = await new Promise<number>((resolve, reject) => {
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
+          if (err) reject(err);
+          else resolve(metadata.format.duration || 0);
+        });
+      });
+      
+      console.log(`[frames-extract] video duration: ${duration}s`);
+      const timestamps: string[] = [];
+      for (let i = 0; i < Math.floor(duration); i++) {
+        timestamps.push(`${i}`);
+      }
+      
+      const framesDir = path.join(tempDir, `frames-${Date.now()}`);
+      fs.mkdirSync(framesDir, { recursive: true });
+      
+      console.log(`[frames-extract] extracting ${timestamps.length} frames`);
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(videoPath)
+          .screenshots({
+            timestamps,
+            filename: 'frame-%i.jpg',
+            folder: framesDir,
+            size: '1080x1920'
+          })
+          .on('end', () => {
+            console.log("[frames-extract] frames extracted successfully");
+            resolve();
+          })
+          .on('error', (err: Error) => {
+            console.error("[frames-extract] ffmpeg error:", err);
+            reject(err);
+          });
+      });
+      
+      console.log("[frames-extract] uploading frames to storage");
+      const frameFiles = fs.readdirSync(framesDir).sort();
+      const frameUrls: string[] = [];
+      
+      for (const frameFile of frameFiles) {
+        const framePath = path.join(framesDir, frameFile);
+        const frameBuffer = fs.readFileSync(framePath);
+        const uploadUrl: string = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+        const uploadResponse: Response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": "image/jpeg" },
+          body: frameBuffer,
+        });
+        const { storageId } = await uploadResponse.json() as { storageId: string };
+        const frameUrl: string | null = await ctx.storage.getUrl(storageId);
+        if (frameUrl) frameUrls.push(frameUrl);
+      }
+      
+      fs.unlinkSync(videoPath);
+      for (const frameFile of frameFiles) {
+        fs.unlinkSync(path.join(framesDir, frameFile));
+      }
+      fs.rmdirSync(framesDir);
+      
+      console.log(`[frames-extract] analyzing ${frameUrls.length} frames with gpt-4o-mini`);
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error("OPENAI_API_KEY not set");
+      }
+
+      const openai = createOpenAI({ apiKey });
+      
+      const { text: annotation } = await generateText({
+        model: openai("gpt-4o-mini"),
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "you are looking at frames from a video taken every 1 second. describe what happens in this video from start to finish. focus on the main subject, actions, transitions, and overall narrative. be concise but capture the key moments and flow. this will be used to decide how to edit videos together." },
+              ...frameUrls.map(url => ({ type: "image" as const, image: url }))
+            ]
+          }
+        ]
+      });
+      
+      console.log("[frames-extract] annotation generated:", annotation);
+      
+      return { 
+        success: true, 
+        frameUrls,
+        annotation
+      };
+    } catch (error) {
+      console.error("[frames-extract] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "frame extraction failed",
+      };
+    }
+  },
+});
