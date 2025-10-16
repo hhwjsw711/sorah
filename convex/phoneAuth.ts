@@ -1,127 +1,98 @@
-import { v } from "convex/values";
-import { mutation, query, action, internalMutation } from "./_generated/server";
-import { internal } from "./_generated/api";
+"use node";
 
-// Generate a 6-digit OTP code
+import { v } from "convex/values";
+import { action } from "./_generated/server";
+import { internal } from "./_generated/api";
+import Twilio from "twilio";
+
+// Generate a 6-digit OTP code (for development mode)
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Internal mutation to store OTP in database
-export const storeOTP = internalMutation({
-  args: {
-    phone: v.string(),
-    code: v.string(),
-    expiresAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    // Delete any existing OTPs for this phone
-    const existingOTPs = await ctx.db
-      .query("otpCodes")
-      .withIndex("by_phone", (q) => q.eq("phone", args.phone))
-      .collect();
-    
-    for (const otp of existingOTPs) {
-      await ctx.db.delete(otp._id);
-    }
+// Send OTP using Twilio Verify (recommended for production)
+async function sendVerifyOTP(phone: string): Promise<void> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
 
-    // Insert new OTP
-    await ctx.db.insert("otpCodes", {
-      phone: args.phone,
-      code: args.code,
-      expiresAt: args.expiresAt,
-      createdAt: Date.now(),
-    });
-  },
-});
+  if (!accountSid || !authToken || !verifyServiceSid) {
+    throw new Error(
+      "Twilio Verify not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID in your environment variables."
+    );
+  }
 
-// Send OTP code (mock implementation)
-// In production, integrate with Twilio, AWS SNS, or similar
+  const client = Twilio(accountSid, authToken);
+
+  try {
+    await client.verify.v2
+      .services(verifyServiceSid)
+      .verifications.create({
+        to: phone,
+        channel: "sms",
+      });
+  } catch (error: any) {
+    console.error("Twilio Verify error:", error);
+    throw new Error(`Failed to send verification: ${error.message}`);
+  }
+}
+
+// Send OTP code via SMS
 export const sendOTP = action({
   args: { phone: v.string() },
   handler: async (ctx, args) => {
-    const code = generateOTP();
-    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+    // Check if we should use Twilio Verify or development mode
+    const useTwilioVerify = 
+      process.env.USE_TWILIO_VERIFY === "true" || 
+      process.env.NODE_ENV === "production";
 
-    // Store the OTP in the database
-    await ctx.runMutation(internal.phoneAuth.storeOTP, {
-      phone: args.phone,
-      code,
-      expiresAt,
-    });
+    if (useTwilioVerify) {
+      // Production: Use Twilio Verify (no phone number needed!)
+      try {
+        await sendVerifyOTP(args.phone);
+        console.log(`✅ Twilio Verify OTP sent to ${args.phone}`);
+        return { 
+          success: true, 
+          message: "OTP sent via SMS",
+          useTwilioVerify: true 
+        };
+      } catch (error: any) {
+        console.error("Failed to send via Twilio Verify:", error);
+        // Fallback to development mode
+        const code = generateOTP();
+        const expiresAt = Date.now() + 10 * 60 * 1000;
+        await ctx.runMutation(internal.users.storeOTP, {
+          phone: args.phone,
+          code,
+          expiresAt,
+        });
+        console.log(`📱 OTP for ${args.phone}: ${code} (Twilio Verify failed, using console)`);
+        return { 
+          success: true, 
+          message: "OTP sent (check console)", 
+          error: error.message,
+          useTwilioVerify: false
+        };
+      }
+    } else {
+      // Development: Generate and store OTP locally
+      const code = generateOTP();
+      const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-    // In production, send SMS here using Twilio or similar
-    console.log(`📱 OTP for ${args.phone}: ${code}`);
-    
-    // For development, you can also log to the console
-    // In production, you'd call your SMS provider API here
-    // await sendSMS(args.phone, `Your verification code is: ${code}`);
-
-    return { success: true, message: "OTP sent successfully" };
-  },
-});
-
-// Verify OTP and create/get user
-export const verifyOTP = mutation({
-  args: {
-    phone: v.string(),
-    code: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // Find OTP in database
-    const storedOTP = await ctx.db
-      .query("otpCodes")
-      .withIndex("by_phone", (q) => q.eq("phone", args.phone))
-      .first();
-    
-    if (!storedOTP) {
-      throw new Error("OTP not found. Please request a new code.");
-    }
-
-    if (Date.now() > storedOTP.expiresAt) {
-      await ctx.db.delete(storedOTP._id);
-      throw new Error("OTP expired. Please request a new code.");
-    }
-
-    if (storedOTP.code !== args.code) {
-      throw new Error("Invalid OTP code.");
-    }
-
-    // OTP is valid, delete it
-    await ctx.db.delete(storedOTP._id);
-
-    // Check if user exists
-    let user = await ctx.db
-      .query("users")
-      .withIndex("by_phone", (q) => q.eq("phone", args.phone))
-      .first();
-
-    // Create user if doesn't exist
-    if (!user) {
-      const userId = await ctx.db.insert("users", {
+      await ctx.runMutation(internal.users.storeOTP, {
         phone: args.phone,
-        onboardingCompleted: false,
-        createdAt: Date.now(),
+        code,
+        expiresAt,
       });
-      user = await ctx.db.get(userId);
+
+      console.log(`📱 OTP for ${args.phone}: ${code}`);
+      console.log(`💡 Development mode: Set USE_TWILIO_VERIFY=true to send real SMS`);
+      return { 
+        success: true, 
+        message: "OTP logged to console (development mode)",
+        useTwilioVerify: false
+      };
     }
-
-    return { 
-      success: true, 
-      userId: user?._id,
-      onboardingCompleted: user?.onboardingCompleted || false 
-    };
-  },
-});
-
-// Get user by phone (for authentication check)
-export const getUserByPhone = query({
-  args: { phone: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("users")
-      .withIndex("by_phone", (q) => q.eq("phone", args.phone))
-      .first();
   },
 });
 

@@ -19,6 +19,7 @@ import type * as http from "../http.js";
 import type * as phoneAuth from "../phoneAuth.js";
 import type * as render from "../render.js";
 import type * as tasks from "../tasks.js";
+import type * as twilioVerify from "../twilioVerify.js";
 import type * as users from "../users.js";
 
 /**
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   phoneAuth: typeof phoneAuth;
   render: typeof render;
   tasks: typeof tasks;
+  twilioVerify: typeof twilioVerify;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

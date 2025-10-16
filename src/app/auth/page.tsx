@@ -6,14 +6,37 @@ import { api } from "../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
+// Common country codes
+const countryCodes = [
+  { code: "+1", country: "US/CA", flag: "🇺🇸" },
+  { code: "+44", country: "UK", flag: "🇬🇧" },
+  { code: "+91", country: "India", flag: "🇮🇳" },
+  { code: "+86", country: "China", flag: "🇨🇳" },
+  { code: "+81", country: "Japan", flag: "🇯🇵" },
+  { code: "+49", country: "Germany", flag: "🇩🇪" },
+  { code: "+33", country: "France", flag: "🇫🇷" },
+  { code: "+61", country: "Australia", flag: "🇦🇺" },
+  { code: "+7", country: "Russia", flag: "🇷🇺" },
+  { code: "+55", country: "Brazil", flag: "🇧🇷" },
+  { code: "+52", country: "Mexico", flag: "🇲🇽" },
+  { code: "+34", country: "Spain", flag: "🇪🇸" },
+  { code: "+39", country: "Italy", flag: "🇮🇹" },
+  { code: "+82", country: "S. Korea", flag: "🇰🇷" },
+  { code: "+27", country: "S. Africa", flag: "🇿🇦" },
+];
+
 export default function AuthPage() {
-  const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+1");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [useTwilioVerify, setUseTwilioVerify] = useState(false);
+  
   const sendOTP = useAction(api.phoneAuth.sendOTP);
-  const verifyOTP = useMutation(api.phoneAuth.verifyOTP);
+  const verifyOTP = useMutation(api.users.verifyOTP);
+  const verifyTwilioOTP = useAction(api.twilioVerify.verifyTwilioOTP);
   const router = useRouter();
   const { setUserId } = useAuth();
 
@@ -23,10 +46,18 @@ export default function AuthPage() {
     setError(null);
 
     try {
-      await sendOTP({ phone });
+      const fullPhone = countryCode + phoneNumber;
+      const result = await sendOTP({ phone: fullPhone });
+      
+      // Check if Twilio Verify was used
+      setUseTwilioVerify(result.useTwilioVerify || false);
+      
       setStep("code");
-      // Show the code in an alert for development
-      alert(`Development Mode: Check the browser console for the OTP code. In production, this will be sent via SMS.`);
+      
+      // Show appropriate message
+      if (!result.useTwilioVerify) {
+        alert(`Development Mode: Check the browser console for the OTP code. In production, this will be sent via SMS.`);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to send code");
     } finally {
@@ -40,7 +71,16 @@ export default function AuthPage() {
     setError(null);
 
     try {
-      const result = await verifyOTP({ phone, code });
+      const fullPhone = countryCode + phoneNumber;
+      
+      let result;
+      if (useTwilioVerify) {
+        // Use Twilio Verify verification
+        result = await verifyTwilioOTP({ phone: fullPhone, code });
+      } else {
+        // Use local OTP verification
+        result = await verifyOTP({ phone: fullPhone, code });
+      }
       
       if (result.success && result.userId) {
         setUserId(result.userId);
@@ -71,16 +111,37 @@ export default function AuthPage() {
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                 phone number
               </label>
-              <input
-                type="tel"
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1234567890"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
-                required
-              />
-              <p className="mt-1 text-sm text-gray-500">enter with country code (e.g., +1234567890)</p>
+              <div className="flex gap-2">
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900 bg-white cursor-pointer"
+                  style={{ minWidth: "120px" }}
+                >
+                  {countryCodes.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  id="phone"
+                  value={phoneNumber}
+                  onChange={(e) => {
+                    // Only allow numbers
+                    const value = e.target.value.replace(/\D/g, "");
+                    setPhoneNumber(value);
+                  }}
+                  placeholder="1234567890"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900"
+                  required
+                  maxLength={15}
+                />
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                enter your phone number without the country code
+              </p>
             </div>
 
             {error && (
@@ -113,7 +174,9 @@ export default function AuthPage() {
                 required
                 maxLength={6}
               />
-              <p className="mt-1 text-sm text-gray-500">enter the 6-digit code sent to {phone}</p>
+              <p className="mt-1 text-sm text-gray-500">
+                enter the 6-digit code sent to {countryCode} {phoneNumber}
+              </p>
               <p className="mt-1 text-xs text-blue-600">Development: Check the browser console for the OTP code</p>
             </div>
 
@@ -138,9 +201,9 @@ export default function AuthPage() {
                 setCode("");
                 setError(null);
               }}
-              className="w-full py-2 px-4 text-gray-600 hover:text-gray-900 transition-colors"
+              className="w-full py-2 px-4 text-gray-600 hover:text-gray-900 transition-colors text-sm"
             >
-              use different number
+              ← use different number
             </button>
           </form>
         )}
