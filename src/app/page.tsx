@@ -9,8 +9,8 @@ import { HeroSection } from "@/components/ui/hero-section-dark";
 import { useAuth } from "@/lib/auth";
 
 export default function Home() {
-  const projects = useQuery(api.tasks.getProjects);
-  const { userId, signOut } = useAuth();
+  const { userId, signOut, isInitialized } = useAuth();
+  const projects = useQuery(api.tasks.getProjects, userId ? { userId } : "skip");
   const currentUser = useQuery(api.users.getCurrentUser, userId ? { userId } : "skip");
   const simulateCompleted = useMutation(api.tasks.simulateCompleted);
   const deleteProject = useMutation(api.tasks.deleteProject);
@@ -20,15 +20,15 @@ export default function Home() {
 
   // Redirect to auth if not logged in
   useEffect(() => {
-    if (!userId) {
+    if (isInitialized && !userId) {
       router.push("/auth");
     } else if (currentUser && !currentUser.onboardingCompleted) {
       router.push("/onboarding");
     }
-  }, [userId, currentUser, router]);
+  }, [isInitialized, userId, currentUser, router]);
 
   // Show loading state while checking auth
-  if (!userId || currentUser === undefined) {
+  if (!isInitialized || !userId || currentUser === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

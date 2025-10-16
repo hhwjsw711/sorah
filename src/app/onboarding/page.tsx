@@ -20,16 +20,16 @@ export default function OnboardingPage() {
   
   const completeOnboarding = useMutation(api.users.completeOnboarding);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
-  const { userId, signOut } = useAuth();
+  const { userId, signOut, isInitialized } = useAuth();
   const currentUser = useQuery(api.users.getCurrentUser, userId ? { userId } : "skip");
   const router = useRouter();
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!userId) {
+    if (isInitialized && !userId) {
       router.push("/auth");
     }
-  }, [userId, router]);
+  }, [isInitialized, userId, router]);
 
   // Redirect if already completed onboarding
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function OnboardingPage() {
     }
   }, [currentUser, router]);
 
-  if (!userId || currentUser === undefined) {
+  if (!isInitialized || !userId || currentUser === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

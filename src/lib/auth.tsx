@@ -7,6 +7,7 @@ interface AuthContextType {
   userId: Id<"users"> | null;
   setUserId: (id: Id<"users"> | null) => void;
   signOut: () => void;
+  isInitialized: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,41 +17,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Load userId from localStorage on mount
-    const storedUserId = localStorage.getItem("sorah_user_id");
-    if (storedUserId) {
-      setUserIdState(storedUserId as Id<"users">);
+    // Only run on client-side to avoid hydration issues
+    if (typeof window !== "undefined") {
+      const storedUserId = localStorage.getItem("sorah_user_id");
+      if (storedUserId) {
+        setUserIdState(storedUserId as Id<"users">);
+      }
+      setIsInitialized(true);
     }
-    setIsInitialized(true);
   }, []);
 
   const setUserId = (id: Id<"users"> | null) => {
     setUserIdState(id);
-    if (id) {
-      localStorage.setItem("sorah_user_id", id);
-    } else {
-      localStorage.removeItem("sorah_user_id");
+    if (typeof window !== "undefined") {
+      if (id) {
+        localStorage.setItem("sorah_user_id", id);
+      } else {
+        localStorage.removeItem("sorah_user_id");
+      }
     }
   };
 
   const signOut = () => {
     setUserIdState(null);
-    localStorage.removeItem("sorah_user_id");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sorah_user_id");
+    }
   };
 
-  if (!isInitialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">loading...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Don't block rendering, just provide initialization state
   return (
-    <AuthContext.Provider value={{ userId, setUserId, signOut }}>
+    <AuthContext.Provider value={{ userId, setUserId, signOut, isInitialized }}>
       {children}
     </AuthContext.Provider>
   );
