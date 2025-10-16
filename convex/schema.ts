@@ -20,6 +20,7 @@ export default defineSchema({
     )),
     voiceRecordingUrl: v.optional(v.string()),
     voiceRecordingStorageId: v.optional(v.id("_storage")),
+    elevenlabsVoiceId: v.optional(v.string()),
     onboardingCompleted: v.boolean(),
     createdAt: v.number(),
   }).index("by_phone", ["phone"]),

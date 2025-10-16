@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -20,12 +20,16 @@ export default function SettingsPage() {
   const [hasExistingVoice, setHasExistingVoice] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [generatingVoice, setGeneratingVoice] = useState(false);
+  const [voiceGenerateSuccess, setVoiceGenerateSuccess] = useState(false);
+  const [hasVoiceId, setHasVoiceId] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   
-  const updateProfile = useMutation(api.users.updateProfile);
+  const updateProfile = useAction(api.users.updateProfile);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  const regenerateVoice = useAction(api.users.regenerateVoice);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -40,6 +44,7 @@ export default function SettingsPage() {
       setName(currentUser.name || "");
       setSelectedStyle(currentUser.preferredStyle || null);
       setHasExistingVoice(!!currentUser.voiceRecordingUrl);
+      setHasVoiceId(!!currentUser.elevenlabsVoiceId);
     }
   }, [currentUser]);
 
@@ -120,6 +125,8 @@ export default function SettingsPage() {
       setAudioBlob(null);
       if (voiceStorageId) {
         setHasExistingVoice(true);
+        // Voice ID will be generated automatically by the updateProfile action
+        setHasVoiceId(true);
       }
       
       // Reset success message after 3 seconds
@@ -129,6 +136,34 @@ export default function SettingsPage() {
       alert("Failed to update profile. Please try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGenerateVoice = async () => {
+    if (!userId || !currentUser?.voiceRecordingUrl) {
+      alert("No voice recording found. Please record your voice first.");
+      return;
+    }
+
+    setGeneratingVoice(true);
+    setVoiceGenerateSuccess(false);
+    try {
+      const result = await regenerateVoice({ userId });
+
+      if (result.success) {
+        setHasVoiceId(true);
+        setVoiceGenerateSuccess(true);
+        
+        // Reset success message after 3 seconds
+        setTimeout(() => setVoiceGenerateSuccess(false), 3000);
+      } else {
+        throw new Error(result.error || "Failed to generate voice");
+      }
+    } catch (error) {
+      console.error("Error generating voice:", error);
+      alert("Failed to generate voice. Please try again.");
+    } finally {
+      setGeneratingVoice(false);
     }
   };
 
@@ -304,6 +339,69 @@ export default function SettingsPage() {
                     record again
                   </button>
                 </>
+              )}
+            </div>
+          </div>
+
+          {/* Voice AI Generation */}
+          <div className="bg-white rounded-2xl shadow-2xl p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">AI voice cloning</h2>
+            <p className="text-gray-600 mb-6">
+              generate an AI voice clone from your recording for use in video narrations
+            </p>
+
+            <div className="space-y-4">
+              {/* Voice Status */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${hasVoiceId ? 'bg-green-500' : hasExistingVoice ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {hasVoiceId ? "AI voice ready" : hasExistingVoice ? "Recording available" : "No recording"}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {hasVoiceId 
+                        ? "Your custom AI voice is ready to use" 
+                        : hasExistingVoice 
+                          ? "Generate AI voice from your recording"
+                          : "Record your voice first"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Success Message */}
+              {voiceGenerateSuccess && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg animate-fade-in">
+                  <div className="flex items-center gap-2 text-green-700">
+                    <svg className="w-5 h-5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                      <path d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span className="font-medium">AI voice generated successfully!</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Generate Button */}
+              {hasExistingVoice && (
+                <button
+                  onClick={handleGenerateVoice}
+                  disabled={generatingVoice}
+                  className={`w-full py-3 px-4 font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    hasVoiceId
+                      ? "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                      : "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg"
+                  }`}
+                >
+                  {generatingVoice ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      generating AI voice...
+                    </span>
+                  ) : (
+                    hasVoiceId ? "regenerate AI voice" : "generate AI voice"
+                  )}
+                </button>
               )}
             </div>
           </div>
