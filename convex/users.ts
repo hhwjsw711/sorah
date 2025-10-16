@@ -173,11 +173,19 @@ export const updateProfile = mutation({
         v.literal("travel")
       )
     ),
+    voiceRecordingStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const updates: any = {};
     if (args.name !== undefined) updates.name = args.name;
     if (args.preferredStyle !== undefined) updates.preferredStyle = args.preferredStyle;
+    
+    // Update voice recording if provided
+    if (args.voiceRecordingStorageId !== undefined) {
+      updates.voiceRecordingStorageId = args.voiceRecordingStorageId;
+      const voiceRecordingUrl = await ctx.storage.getUrl(args.voiceRecordingStorageId);
+      updates.voiceRecordingUrl = voiceRecordingUrl || undefined;
+    }
 
     await ctx.db.patch(args.userId, updates);
     return { success: true };
