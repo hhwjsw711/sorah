@@ -195,6 +195,8 @@ export const generateVoiceover = action({
           result.alignment.characterStartTimesSeconds,
           result.alignment.characterEndTimesSeconds
         );
+        // Replace ??? back to ? for display in subtitles
+        srtContent = srtContent.replace(/\?\?\?/g, '?');
         console.log("[voiceover] SRT generated, length:", srtContent.length, "chars");
       }
       
