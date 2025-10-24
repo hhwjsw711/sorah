@@ -7,6 +7,7 @@ import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { api } from "./_generated/api";
+import { prompts } from "./prompts";
 
 export const transcribeAudio = action({
   args: {
@@ -50,7 +51,7 @@ export const animateImage = action({
     imageUrl: v.string(),
     prompt: v.optional(v.string()),
   },
-  handler: async (ctx, { imageUrl, prompt = "slightly animate it" }) => {
+  handler: async (ctx, { imageUrl, prompt = prompts.imageAnimation.default }) => {
     console.log("[animate] animating image:", imageUrl);
     
     try {
@@ -299,11 +300,9 @@ export const generateScript = action({
 
       const openai = createOpenAI({ apiKey });
 
-      const systemPrompt = `You are a social media manager creating a script for a short form video for IG, tiktok or Youtube shorts. Your task is to create a 15 second script given the given information. Add a bit of background to explain company names, if some details can be lacking for general audience, feel free to add it. Also add value why this reel is worth watch or why the idea conveyed in the reel is important. Add a hook in the beginning and call for action at the end related to the things mentioned at the video (to try the thing mentioned or smth like that). Do not add too much exciting phrases - try to keep professional. Take into account the photos and videos attached. The output should be just plain text w/o any additional words`;
-
       const { text } = await generateText({
         model: openai("gpt-5"),
-        system: systemPrompt,
+        system: prompts.scriptGeneration.system,
         prompt,
       });
 

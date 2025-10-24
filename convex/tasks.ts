@@ -2,6 +2,7 @@ import { query, mutation, action, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { prompts } from "./prompts";
 
 const isImageUrl = (url: string): boolean => {
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
@@ -430,7 +431,7 @@ export const processProjectWithAI = action({
       console.log("[ai-process] music duration (voiceover / 1.25):", adjustedMusicDuration, "ms");
       
       const musicResult = await ctx.runAction(api.aiServices.generateMusic, {
-        prompt: "upbeat background music for social media video",
+        prompt: prompts.musicGeneration.default,
         durationMs: adjustedMusicDuration,
       });
 
@@ -723,7 +724,7 @@ export const regenerateMusic = action({
       }
 
       const musicResult = await ctx.runAction(api.aiServices.generateMusic, {
-        prompt: "upbeat background music for social media video",
+        prompt: prompts.musicGeneration.default,
         durationMs: 15000,
       });
 

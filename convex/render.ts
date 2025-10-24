@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { Sandbox } from "e2b";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { prompts } from "./prompts";
 
 // Helper function to sanitize filenames
 function sanitizeFilename(filename: string): string {
@@ -156,31 +157,62 @@ export const renderVideo = action({
         console.log("[render] uploading original files with metadata...");
         for (let i = 0; i < project.fileMetadata.length; i++) {
           const fileMeta = project.fileMetadata[i];
+          // Get fresh URL to avoid expiration issues
           const fileUrl = await ctx.storage.getUrl(fileMeta.storageId);
-          if (!fileUrl) continue;
+          if (!fileUrl) {
+            console.log(`[render] skipping file ${i}: no URL available for ${fileMeta.filename}`);
+            continue;
+          }
           
           const sanitizedFilename = sanitizeFilename(fileMeta.filename);
-          console.log(`[render] fetching file ${i}: ${fileMeta.filename} -> ${sanitizedFilename}`);
-          const response = await fetch(fileUrl);
-          const buffer = await response.arrayBuffer();
+          console.log(`[render] fetching file ${i + 1}/${project.fileMetadata.length}: ${fileMeta.filename} -> ${sanitizedFilename}`);
           
-          const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
-          await sandbox.files.write(sandboxPath, buffer);
-          console.log(`[render] uploaded ${sanitizedFilename} (${buffer.byteLength} bytes)`);
+          try {
+            const response = await fetch(fileUrl);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const buffer = await response.arrayBuffer();
+            console.log(`[render] fetched ${sanitizedFilename} (${(buffer.byteLength / 1024 / 1024).toFixed(2)} MB)`);
+            
+            const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
+            await sandbox.files.write(sandboxPath, buffer);
+            console.log(`[render] uploaded ${sanitizedFilename} to sandbox`);
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to fetch file ${fileMeta.filename} (${i + 1}/${project.fileMetadata.length}): ${errorMsg}. This may be due to: 1) Expired storage URL (URLs expire after 1 hour), 2) Large file timeout, or 3) Network issues. Try re-uploading the file.`);
+          }
         }
       } else if (project.files && project.files.length > 0) {
         console.log("[render] uploading original files (legacy, no metadata)...");
         for (let i = 0; i < project.files.length; i++) {
           const fileUrl = await ctx.storage.getUrl(project.files[i]);
-          if (!fileUrl) continue;
+          if (!fileUrl) {
+            console.log(`[render] skipping file ${i}: no URL available`);
+            continue;
+          }
           
-          console.log(`[render] fetching file ${i}`);
-          const response = await fetch(fileUrl);
-          const buffer = await response.arrayBuffer();
+          console.log(`[render] fetching file ${i + 1}/${project.files.length}`);
           
-          const sandboxPath = `/home/user/public/media/file${i}`;
-          await sandbox.files.write(sandboxPath, buffer);
-          console.log(`[render] uploaded file${i} (${buffer.byteLength} bytes)`);
+          try {
+            const response = await fetch(fileUrl);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const buffer = await response.arrayBuffer();
+            console.log(`[render] fetched file${i} (${(buffer.byteLength / 1024 / 1024).toFixed(2)} MB)`);
+            
+            const sandboxPath = `/home/user/public/media/file${i}`;
+            await sandbox.files.write(sandboxPath, buffer);
+            console.log(`[render] uploaded file${i} to sandbox`);
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to fetch file ${i + 1}/${project.files.length}: ${errorMsg}. This may be due to expired storage URL or network issues.`);
+          }
         }
       }
       
@@ -251,24 +283,7 @@ export const renderVideo = action({
         details: "claude is analyzing footage and creating composition",
       });
       
-      const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
-
-read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
-
-then decide on how to edit them together by emotion: ${project.prompt || 'create an engaging social media video'}
-
-bun remotion render when done
-
-upload out/reelful.mp4 
-curl -X POST https://reels-srt.vercel.app/api/fireworks -F "file=@out/reelful.mp4"
-
-and save srt into the public/reelful.srt
-
-create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
-
-we use bun btw
-
-composition should be portrait!`;
+      const videoEditorPrompt = prompts.videoEditor.generate(project.prompt || 'create an engaging social media video');
 
       console.log("[render] writing prompt via command to avoid timeout");
       const promptBase64 = Buffer.from(videoEditorPrompt).toString('base64');
@@ -829,24 +844,7 @@ export const createSequence = action({
         details: "claude is analyzing footage and creating composition",
       });
       
-      const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
-
-read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
-
-then decide on how to edit them together by emotion: ${project.prompt || 'create an engaging social media video'}
-
-bun remotion render when done
-
-upload out/reelful.mp4 
-curl -X POST https://reels-srt.vercel.app/api/fireworks -F "file=@out/reelful.mp4"
-
-and save srt into the public/reelful.srt
-
-create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
-
-we use bun btw
-
-composition should be portrait!`;
+      const videoEditorPrompt = prompts.videoEditor.generate(project.prompt || 'create an engaging social media video');
 
       await sandbox.files.write("/home/user/prompt.txt", videoEditorPrompt);
       
@@ -1070,17 +1068,33 @@ export const step2UploadFiles = action({
       if (project.fileMetadata && project.fileMetadata.length > 0) {
         for (let i = 0; i < project.fileMetadata.length; i++) {
           const fileMeta = project.fileMetadata[i];
+          // Get fresh URL to avoid expiration issues
           const fileUrl = await ctx.storage.getUrl(fileMeta.storageId);
-          if (!fileUrl) continue;
+          if (!fileUrl) {
+            console.log(`[step2] skipping file ${i}: no URL available for ${fileMeta.filename}`);
+            continue;
+          }
           
           const sanitizedFilename = sanitizeFilename(fileMeta.filename);
           console.log(`[step2] uploading ${fileMeta.filename} -> ${sanitizedFilename}`);
-          const response = await fetch(fileUrl);
-          const buffer = await response.arrayBuffer();
           
-          const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
-          await sandbox.files.write(sandboxPath, buffer);
-          console.log(`[step2] uploaded ${sanitizedFilename}`);
+          try {
+            const response = await fetch(fileUrl);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const buffer = await response.arrayBuffer();
+            console.log(`[step2] fetched ${sanitizedFilename} (${(buffer.byteLength / 1024 / 1024).toFixed(2)} MB)`);
+            
+            const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
+            await sandbox.files.write(sandboxPath, buffer);
+            console.log(`[step2] uploaded ${sanitizedFilename} to sandbox`);
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to fetch file ${fileMeta.filename}: ${errorMsg}. Storage URLs expire after 1 hour - try re-uploading the file if it's been a while.`);
+          }
         }
       }
 
@@ -1143,17 +1157,7 @@ export const step3RunVideoEditor = action({
 
       const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
 
-      const videoEditorPrompt = `remotion.dev - add new composition using ls public/media files.
-
-read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
-
-then decide on how to edit them together by emotion: ${project.prompt || 'create an engaging social media video'}
-
-create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
-
-we use bun btw
-
-composition should be portrait!`;
+      const videoEditorPrompt = prompts.videoEditor.generateSimplified(project.prompt || 'create an engaging social media video');
 
       const promptBase64 = Buffer.from(videoEditorPrompt).toString('base64');
       await sandbox.commands.run(`echo '${promptBase64}' | base64 -d > /home/user/prompt.txt`);
