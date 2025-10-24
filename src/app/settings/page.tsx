@@ -11,6 +11,10 @@ type PreferredStyle = "playful" | "professional" | "travel";
 export default function SettingsPage() {
   const { userId, signOut, isInitialized } = useAuth();
   const currentUser = useQuery(api.users.getCurrentUser, userId ? { userId } : "skip");
+  const voicePreviewUrl = useQuery(
+    api.users.getVoicePreviewUrl,
+    currentUser?.voicePreviewStorageId ? { storageId: currentUser.voicePreviewStorageId } : "skip"
+  );
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -23,13 +27,16 @@ export default function SettingsPage() {
   const [generatingVoice, setGeneratingVoice] = useState(false);
   const [voiceGenerateSuccess, setVoiceGenerateSuccess] = useState(false);
   const [hasVoiceId, setHasVoiceId] = useState(false);
+  const [playingPreview, setPlayingPreview] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const updateProfile = useAction(api.users.updateProfile);
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const regenerateVoice = useAction(api.users.regenerateVoice);
+  const previewVoice = useAction(api.aiServices.previewVoice);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -164,6 +171,75 @@ export default function SettingsPage() {
       alert("Failed to generate voice. Please try again.");
     } finally {
       setGeneratingVoice(false);
+    }
+  };
+
+  const handlePlayVoicePreview = async () => {
+    if (!currentUser?.elevenlabsVoiceId) {
+      alert("No AI voice available. Please generate your AI voice first.");
+      return;
+    }
+
+    setPlayingPreview(true);
+    try {
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      let audioUrl: string;
+      let shouldRevokeUrl = false;
+      
+      // Use cached preview if available
+      if (voicePreviewUrl) {
+        console.log("Using cached voice preview from storage");
+        audioUrl = voicePreviewUrl;
+      } else {
+        // Generate preview on demand if not cached
+        console.log("Generating voice preview on demand (no cache)");
+        const result = await previewVoice({ voiceId: currentUser.elevenlabsVoiceId });
+
+        if (result.success && result.audioBase64) {
+          // Convert base64 to blob and play
+          const byteCharacters = atob(result.audioBase64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const audioBlob = new Blob([byteArray], { type: 'audio/mp3' });
+          audioUrl = URL.createObjectURL(audioBlob);
+          shouldRevokeUrl = true;
+        } else {
+          throw new Error(result.error || "Failed to generate voice preview");
+        }
+      }
+      
+      // Create and play audio
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setPlayingPreview(false);
+        if (shouldRevokeUrl) {
+          URL.revokeObjectURL(audioUrl);
+        }
+      };
+      
+      audio.onerror = () => {
+        setPlayingPreview(false);
+        if (shouldRevokeUrl) {
+          URL.revokeObjectURL(audioUrl);
+        }
+        alert("Failed to play voice preview.");
+      };
+      
+      await audio.play();
+    } catch (error) {
+      console.error("Error playing voice preview:", error);
+      alert("Failed to play voice preview. Please try again.");
+      setPlayingPreview(false);
     }
   };
 
@@ -368,6 +444,27 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
+                {hasVoiceId && (
+                  <button
+                    onClick={handlePlayVoicePreview}
+                    disabled={playingPreview}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {playingPreview ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        playing...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                        </svg>
+                        play preview
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* Success Message */}

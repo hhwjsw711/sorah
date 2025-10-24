@@ -123,6 +123,14 @@ export const getCurrentUser = query({
   },
 });
 
+// Get voice preview URL from storage ID
+export const getVoicePreviewUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    return await ctx.storage.getUrl(args.storageId);
+  },
+});
+
 // Internal mutation to update user onboarding
 export const internalCompleteOnboarding = internalMutation({
   args: {
@@ -136,6 +144,7 @@ export const internalCompleteOnboarding = internalMutation({
     voiceRecordingStorageId: v.optional(v.id("_storage")),
     voiceRecordingUrl: v.optional(v.string()),
     elevenlabsVoiceId: v.optional(v.string()),
+    voicePreviewStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userId, {
@@ -144,6 +153,7 @@ export const internalCompleteOnboarding = internalMutation({
       voiceRecordingStorageId: args.voiceRecordingStorageId,
       voiceRecordingUrl: args.voiceRecordingUrl,
       elevenlabsVoiceId: args.elevenlabsVoiceId,
+      voicePreviewStorageId: args.voicePreviewStorageId,
       onboardingCompleted: true,
     });
   },
@@ -165,6 +175,7 @@ export const completeOnboarding = action({
     // Get the storage URL for the voice recording
     let voiceRecordingUrl: string | undefined;
     let elevenlabsVoiceId: string | undefined;
+    let voicePreviewStorageId: string | undefined;
     
     if (args.voiceRecordingStorageId) {
       voiceRecordingUrl = await ctx.storage.getUrl(args.voiceRecordingStorageId);
@@ -179,6 +190,7 @@ export const completeOnboarding = action({
         
         if (voiceResult.success && voiceResult.voiceId) {
           elevenlabsVoiceId = voiceResult.voiceId;
+          voicePreviewStorageId = voiceResult.previewStorageId;
           console.log("[completeOnboarding] ElevenLabs voice created:", elevenlabsVoiceId);
         } else {
           console.error("[completeOnboarding] failed to create ElevenLabs voice:", voiceResult.error);
@@ -194,6 +206,7 @@ export const completeOnboarding = action({
       voiceRecordingStorageId: args.voiceRecordingStorageId,
       voiceRecordingUrl: voiceRecordingUrl,
       elevenlabsVoiceId: elevenlabsVoiceId,
+      voicePreviewStorageId: voicePreviewStorageId,
     });
 
     return { success: true };
@@ -219,15 +232,17 @@ export const internalUpdateProfile = internalMutation({
   },
 });
 
-// Internal mutation to update just the voice ID
+// Internal mutation to update just the voice ID and preview
 export const updateVoiceId = internalMutation({
   args: {
     userId: v.id("users"),
     elevenlabsVoiceId: v.string(),
+    voicePreviewStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userId, {
       elevenlabsVoiceId: args.elevenlabsVoiceId,
+      voicePreviewStorageId: args.voicePreviewStorageId,
     });
   },
 });
@@ -257,6 +272,7 @@ export const regenerateVoice = action({
       await ctx.runMutation(api.users.updateVoiceId, {
         userId: args.userId,
         elevenlabsVoiceId: voiceResult.voiceId,
+        voicePreviewStorageId: voiceResult.previewStorageId,
       });
       
       console.log("[regenerateVoice] voice created successfully:", voiceResult.voiceId);
@@ -311,6 +327,7 @@ export const updateProfile = action({
         
         if (voiceResult.success && voiceResult.voiceId) {
           updates.elevenlabsVoiceId = voiceResult.voiceId;
+          updates.voicePreviewStorageId = voiceResult.previewStorageId;
           console.log("[updateProfile] ElevenLabs voice created:", voiceResult.voiceId);
         } else {
           console.error("[updateProfile] failed to create ElevenLabs voice:", voiceResult.error);

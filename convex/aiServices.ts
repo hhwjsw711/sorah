@@ -327,7 +327,7 @@ export const createElevenLabsVoice = action({
     audioUrl: v.string(),
     name: v.string(),
   },
-  handler: async (ctx, { audioUrl, name }): Promise<{ success: boolean; voiceId?: string; error?: string }> => {
+  handler: async (ctx, { audioUrl, name }): Promise<{ success: boolean; voiceId?: string; previewStorageId?: string; error?: string }> => {
     console.log("[createVoice] creating ElevenLabs voice for:", name);
     
     try {
@@ -374,12 +374,168 @@ export const createElevenLabsVoice = action({
       }
 
       console.log("[createVoice] voice created successfully with ID:", voiceId);
-      return { success: true, voiceId };
+      
+      // Generate and store voice preview
+      let previewStorageId: string | undefined;
+      try {
+        console.log("[createVoice] generating voice preview...");
+        const previewResult = await ctx.runAction(api.aiServices.generateAndStoreVoicePreview, {
+          voiceId,
+        });
+        
+        if (previewResult.success && previewResult.storageId) {
+          previewStorageId = previewResult.storageId;
+          console.log("[createVoice] preview generated and stored");
+        }
+      } catch (previewError) {
+        console.error("[createVoice] failed to generate preview:", previewError);
+        // Don't fail the entire voice creation if preview fails
+      }
+      
+      return { success: true, voiceId, previewStorageId };
     } catch (error) {
       console.error("[createVoice] error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "voice creation failed",
+      };
+    }
+  },
+});
+
+export const generateAndStoreVoicePreview = action({
+  args: {
+    voiceId: v.string(),
+  },
+  handler: async (ctx, { voiceId }): Promise<{ success: boolean; storageId?: string; error?: string }> => {
+    console.log("[generateAndStoreVoicePreview] generating voice preview for:", voiceId);
+    
+    try {
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      if (!apiKey) {
+        throw new Error("ELEVENLABS_API_KEY not set");
+      }
+
+      const client = new ElevenLabsClient({
+        apiKey,
+      });
+
+      // Generate a short preview with the voice
+      const previewText = "Hello! This is a preview of your custom AI voice.";
+      
+      const audio = await client.textToSpeech.convert(voiceId, {
+        text: previewText,
+        modelId: "eleven_multilingual_v2",
+        outputFormat: "mp3_44100_128",
+        voiceSettings: {
+          stability: 0.5,
+          similarityBoost: 1.0,
+          style: 0.0,
+          useSpeakerBoost: true,
+          speed: 1.2,
+        },
+      });
+
+      // Convert audio stream to buffer
+      const chunks: Uint8Array[] = [];
+      const reader = audio.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const audioBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        audioBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      console.log("[generateAndStoreVoicePreview] preview generated, size:", audioBuffer.length);
+      
+      // Store the preview in Convex storage
+      const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": "audio/mp3" },
+        body: audioBuffer,
+      });
+      const { storageId } = await uploadResponse.json();
+      
+      console.log("[generateAndStoreVoicePreview] preview stored successfully, storageId:", storageId);
+      return { success: true, storageId };
+    } catch (error) {
+      console.error("[generateAndStoreVoicePreview] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "voice preview generation failed",
+      };
+    }
+  },
+});
+
+export const previewVoice = action({
+  args: {
+    voiceId: v.string(),
+  },
+  handler: async (ctx, { voiceId }): Promise<{ success: boolean; audioBase64?: string; error?: string }> => {
+    console.log("[previewVoice] generating voice preview for:", voiceId);
+    
+    try {
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      if (!apiKey) {
+        throw new Error("ELEVENLABS_API_KEY not set");
+      }
+
+      const client = new ElevenLabsClient({
+        apiKey,
+      });
+
+      // Generate a short preview with the voice
+      const previewText = "Hello! This is a preview of your custom AI voice.";
+      
+      const audio = await client.textToSpeech.convert(voiceId, {
+        text: previewText,
+        modelId: "eleven_multilingual_v2",
+        outputFormat: "mp3_44100_128",
+        voiceSettings: {
+          stability: 0.5,
+          similarityBoost: 1.0,
+          style: 0.0,
+          useSpeakerBoost: true,
+          speed: 1.2,
+        },
+      });
+
+      // Convert audio stream to buffer
+      const chunks: Uint8Array[] = [];
+      const reader = audio.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const audioBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        audioBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Convert to base64 for transmission
+      const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+
+      console.log("[previewVoice] preview generated successfully");
+      return { success: true, audioBase64 };
+    } catch (error) {
+      console.error("[previewVoice] error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "voice preview failed",
       };
     }
   },
