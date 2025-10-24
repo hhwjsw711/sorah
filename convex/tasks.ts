@@ -398,7 +398,11 @@ export const processProjectWithAI = action({
       let voiceId: string | undefined;
       if (project.userId) {
         const user = await ctx.runQuery(api.users.getCurrentUser, { userId: project.userId });
-        if (user?.elevenlabsVoiceId) {
+        // Use selected voice if available, otherwise fall back to custom voice
+        if (user?.selectedVoiceId) {
+          voiceId = user.selectedVoiceId;
+          console.log("[ai-process] using user's selected voice ID:", voiceId);
+        } else if (user?.elevenlabsVoiceId) {
           voiceId = user.elevenlabsVoiceId;
           console.log("[ai-process] using user's custom voice ID:", voiceId);
         }
@@ -557,11 +561,15 @@ export const regenerateVoiceover = action({
         throw new Error("no script found - generate script first");
       }
 
-      // Get user's custom voice ID if available
+      // Get user's selected voice ID if available
       let voiceId: string | undefined;
       if (project.userId) {
         const user = await ctx.runQuery(api.users.getCurrentUser, { userId: project.userId });
-        if (user?.elevenlabsVoiceId) {
+        // Use selected voice if available, otherwise fall back to custom voice
+        if (user?.selectedVoiceId) {
+          voiceId = user.selectedVoiceId;
+          console.log("[regenerate-voiceover] using user's selected voice ID:", voiceId);
+        } else if (user?.elevenlabsVoiceId) {
           voiceId = user.elevenlabsVoiceId;
           console.log("[regenerate-voiceover] using user's custom voice ID:", voiceId);
         }

@@ -5,12 +5,84 @@ import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { Id } from "../../../convex/_generated/dataModel";
 
 type PreferredStyle = "playful" | "professional" | "travel";
+
+interface VoiceOptionProps {
+  voice: {
+    _id: Id<"defaultVoices">;
+    voiceId: string;
+    name: string;
+    description?: string;
+    previewStorageId?: Id<"_storage">;
+  };
+  isSelected: boolean;
+  isPlaying: boolean;
+  onSelect: () => void;
+  onPlay: (previewUrl: string | null) => void;
+}
+
+function VoiceOption({ voice, isSelected, isPlaying, onSelect, onPlay }: VoiceOptionProps) {
+  const previewUrl = useQuery(
+    api.users.getVoicePreviewUrl,
+    voice.previewStorageId ? { storageId: voice.previewStorageId } : "skip"
+  );
+
+  return (
+    <div
+      className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+        isSelected
+          ? "border-purple-600 bg-purple-50"
+          : "border-gray-200 hover:border-purple-300"
+      }`}
+      onClick={onSelect}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`w-3 h-3 rounded-full ${
+            isSelected ? 'bg-purple-600' : 'bg-gray-300'
+          }`}></div>
+          <div>
+            <p className="font-medium text-gray-900">{voice.name}</p>
+            {voice.description && (
+              <p className="text-sm text-gray-600">{voice.description}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay(previewUrl || null);
+            }}
+            disabled={isPlaying}
+            className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all disabled:opacity-50 flex items-center gap-2 text-sm"
+          >
+            {isPlaying ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                playing
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                </svg>
+                play
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { userId, signOut, isInitialized } = useAuth();
   const currentUser = useQuery(api.users.getCurrentUser, userId ? { userId } : "skip");
+  const defaultVoices = useQuery(api.users.getDefaultVoices);
   const voicePreviewUrl = useQuery(
     api.users.getVoicePreviewUrl,
     currentUser?.voicePreviewStorageId ? { storageId: currentUser.voicePreviewStorageId } : "skip"
@@ -27,7 +99,8 @@ export default function SettingsPage() {
   const [generatingVoice, setGeneratingVoice] = useState(false);
   const [voiceGenerateSuccess, setVoiceGenerateSuccess] = useState(false);
   const [hasVoiceId, setHasVoiceId] = useState(false);
-  const [playingPreview, setPlayingPreview] = useState(false);
+  const [playingPreview, setPlayingPreview] = useState<string | null>(null);
+  const [initializingVoices, setInitializingVoices] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -37,6 +110,8 @@ export default function SettingsPage() {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const regenerateVoice = useAction(api.users.regenerateVoice);
   const previewVoice = useAction(api.aiServices.previewVoice);
+  const initializeDefaultVoices = useAction(api.users.initializeDefaultVoices);
+  const updateSelectedVoice = useMutation(api.users.updateSelectedVoice);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -54,6 +129,23 @@ export default function SettingsPage() {
       setHasVoiceId(!!currentUser.elevenlabsVoiceId);
     }
   }, [currentUser]);
+
+  // Initialize default voices if they don't exist
+  useEffect(() => {
+    const initVoices = async () => {
+      if (defaultVoices !== undefined && defaultVoices.length === 0 && !initializingVoices) {
+        setInitializingVoices(true);
+        try {
+          await initializeDefaultVoices();
+        } catch (error) {
+          console.error("Failed to initialize default voices:", error);
+        } finally {
+          setInitializingVoices(false);
+        }
+      }
+    };
+    initVoices();
+  }, [defaultVoices, initializeDefaultVoices, initializingVoices]);
 
   if (!isInitialized || !userId || currentUser === undefined) {
     return (
@@ -174,13 +266,8 @@ export default function SettingsPage() {
     }
   };
 
-  const handlePlayVoicePreview = async () => {
-    if (!currentUser?.elevenlabsVoiceId) {
-      alert("No AI voice available. Please generate your AI voice first.");
-      return;
-    }
-
-    setPlayingPreview(true);
+  const handlePlayVoicePreview = async (voiceId: string, previewUrl?: string | null) => {
+    setPlayingPreview(voiceId);
     try {
       // Stop any currently playing audio
       if (audioRef.current) {
@@ -192,13 +279,13 @@ export default function SettingsPage() {
       let shouldRevokeUrl = false;
       
       // Use cached preview if available
-      if (voicePreviewUrl) {
+      if (previewUrl) {
         console.log("Using cached voice preview from storage");
-        audioUrl = voicePreviewUrl;
+        audioUrl = previewUrl;
       } else {
         // Generate preview on demand if not cached
         console.log("Generating voice preview on demand (no cache)");
-        const result = await previewVoice({ voiceId: currentUser.elevenlabsVoiceId });
+        const result = await previewVoice({ voiceId });
 
         if (result.success && result.audioBase64) {
           // Convert base64 to blob and play
@@ -221,14 +308,14 @@ export default function SettingsPage() {
       audioRef.current = audio;
       
       audio.onended = () => {
-        setPlayingPreview(false);
+        setPlayingPreview(null);
         if (shouldRevokeUrl) {
           URL.revokeObjectURL(audioUrl);
         }
       };
       
       audio.onerror = () => {
-        setPlayingPreview(false);
+        setPlayingPreview(null);
         if (shouldRevokeUrl) {
           URL.revokeObjectURL(audioUrl);
         }
@@ -239,7 +326,17 @@ export default function SettingsPage() {
     } catch (error) {
       console.error("Error playing voice preview:", error);
       alert("Failed to play voice preview. Please try again.");
-      setPlayingPreview(false);
+      setPlayingPreview(null);
+    }
+  };
+
+  const handleSelectVoice = async (voiceId: string) => {
+    if (!userId) return;
+    try {
+      await updateSelectedVoice({ userId, voiceId });
+    } catch (error) {
+      console.error("Error selecting voice:", error);
+      alert("Failed to select voice. Please try again.");
     }
   };
 
@@ -419,53 +516,90 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Voice AI Generation */}
+          {/* Voice Selection */}
           <div className="bg-white rounded-2xl shadow-2xl p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">AI voice cloning</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">voice selection</h2>
             <p className="text-gray-600 mb-6">
-              generate an AI voice clone from your recording for use in video narrations
+              choose a voice for your video narrations
             </p>
 
             <div className="space-y-4">
-              {/* Voice Status */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${hasVoiceId ? 'bg-green-500' : hasExistingVoice ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {hasVoiceId ? "AI voice ready" : hasExistingVoice ? "Recording available" : "No recording"}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {hasVoiceId 
-                        ? "Your custom AI voice is ready to use" 
-                        : hasExistingVoice 
-                          ? "Generate AI voice from your recording"
-                          : "Record your voice first"}
-                    </p>
+              {/* Custom Voice */}
+              {hasVoiceId && currentUser.elevenlabsVoiceId && (
+                <div 
+                  className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                    currentUser.selectedVoiceId === currentUser.elevenlabsVoiceId
+                      ? "border-purple-600 bg-purple-50"
+                      : "border-gray-200 hover:border-purple-300"
+                  }`}
+                  onClick={() => handleSelectVoice(currentUser.elevenlabsVoiceId!)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        currentUser.selectedVoiceId === currentUser.elevenlabsVoiceId 
+                          ? 'bg-purple-600' 
+                          : 'bg-gray-300'
+                      }`}></div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          Your Custom Voice
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Generated from your voice recording
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayVoicePreview(currentUser.elevenlabsVoiceId!, voicePreviewUrl);
+                        }}
+                        disabled={playingPreview === currentUser.elevenlabsVoiceId}
+                        className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all disabled:opacity-50 flex items-center gap-2 text-sm"
+                      >
+                        {playingPreview === currentUser.elevenlabsVoiceId ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            playing
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                            </svg>
+                            play
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                {hasVoiceId && (
+              )}
+
+              {/* Generate Custom Voice Button */}
+              {hasExistingVoice && !hasVoiceId && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700 mb-3">
+                    You have a voice recording. Generate your custom AI voice to use it in videos.
+                  </p>
                   <button
-                    onClick={handlePlayVoicePreview}
-                    disabled={playingPreview}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    onClick={handleGenerateVoice}
+                    disabled={generatingVoice}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {playingPreview ? (
-                      <>
+                    {generatingVoice ? (
+                      <span className="flex items-center justify-center gap-2">
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        playing...
-                      </>
+                        generating AI voice...
+                      </span>
                     ) : (
-                      <>
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                        </svg>
-                        play preview
-                      </>
+                      "generate custom voice"
                     )}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Success Message */}
               {voiceGenerateSuccess && (
@@ -474,30 +608,58 @@ export default function SettingsPage() {
                     <svg className="w-5 h-5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                       <path d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <span className="font-medium">AI voice generated successfully!</span>
+                    <span className="font-medium">Custom voice generated successfully!</span>
                   </div>
                 </div>
               )}
 
-              {/* Generate Button */}
-              {hasExistingVoice && (
+              {/* Divider */}
+              {hasVoiceId && (defaultVoices && defaultVoices.length > 0) && (
+                <div className="flex items-center gap-3 py-2">
+                  <div className="flex-1 h-px bg-gray-300"></div>
+                  <span className="text-sm text-gray-500 font-medium">or choose a default voice</span>
+                  <div className="flex-1 h-px bg-gray-300"></div>
+                </div>
+              )}
+
+              {!hasVoiceId && (defaultVoices && defaultVoices.length > 0) && (
+                <div className="py-2">
+                  <p className="text-sm text-gray-600 text-center">
+                    Choose a default voice to get started
+                  </p>
+                </div>
+              )}
+
+              {/* Default Voices */}
+              {defaultVoices?.map((voice) => (
+                <VoiceOption
+                  key={voice._id}
+                  voice={voice}
+                  isSelected={currentUser.selectedVoiceId === voice.voiceId}
+                  isPlaying={playingPreview === voice.voiceId}
+                  onSelect={() => handleSelectVoice(voice.voiceId)}
+                  onPlay={(previewUrl) => handlePlayVoicePreview(voice.voiceId, previewUrl)}
+                />
+              ))}
+
+              {/* Loading State */}
+              {initializingVoices && (
+                <div className="p-4 bg-gray-50 rounded-lg text-center">
+                  <div className="flex items-center justify-center gap-2 text-gray-600">
+                    <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Initializing default voices...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Regenerate Custom Voice */}
+              {hasVoiceId && hasExistingVoice && (
                 <button
                   onClick={handleGenerateVoice}
                   disabled={generatingVoice}
-                  className={`w-full py-3 px-4 font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    hasVoiceId
-                      ? "bg-purple-100 text-purple-700 hover:bg-purple-200"
-                      : "bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg"
-                  }`}
+                  className="w-full py-2 px-4 text-purple-600 hover:text-purple-700 font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {generatingVoice ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      generating AI voice...
-                    </span>
-                  ) : (
-                    hasVoiceId ? "regenerate AI voice" : "generate AI voice"
-                  )}
+                  {generatingVoice ? "regenerating..." : "regenerate custom voice"}
                 </button>
               )}
             </div>

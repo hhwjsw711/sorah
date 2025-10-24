@@ -131,6 +131,103 @@ export const getVoicePreviewUrl = query({
   },
 });
 
+// Get all default voices
+export const getDefaultVoices = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("defaultVoices").collect();
+  },
+});
+
+// Initialize default voices (one-time setup or update)
+export const initializeDefaultVoices = action({
+  args: {},
+  handler: async (ctx) => {
+    const defaultVoices = [
+      { voiceId: "J5Tvc0PBEsF1Qd2KBTey", name: "Kate", description: "Warm and professional female voice" },
+      { voiceId: "tnSpp4vdxKPjI9w0GnoV", name: "Hope", description: "Friendly and engaging female voice" },
+      { voiceId: "15CVCzDByBinCIoCblXo", name: "Lucan", description: "Clear and confident male voice" },
+    ];
+
+    for (const voice of defaultVoices) {
+      // Check if voice already exists
+      const existing = await ctx.runQuery(api.users.getDefaultVoiceByVoiceId, { voiceId: voice.voiceId });
+      
+      if (!existing) {
+        console.log(`[initializeDefaultVoices] Creating default voice: ${voice.name}`);
+        
+        // Generate preview for this voice
+        const previewResult = await ctx.runAction(api.aiServices.generateAndStoreVoicePreview, {
+          voiceId: voice.voiceId,
+        });
+        
+        let previewStorageId: string | undefined;
+        if (previewResult.success && previewResult.storageId) {
+          previewStorageId = previewResult.storageId;
+          console.log(`[initializeDefaultVoices] Preview generated for ${voice.name}`);
+        } else {
+          console.error(`[initializeDefaultVoices] Failed to generate preview for ${voice.name}`);
+        }
+        
+        // Insert the default voice
+        await ctx.runMutation(api.users.internalCreateDefaultVoice, {
+          voiceId: voice.voiceId,
+          name: voice.name,
+          description: voice.description,
+          previewStorageId,
+        });
+      } else {
+        console.log(`[initializeDefaultVoices] Voice ${voice.name} already exists`);
+      }
+    }
+    
+    return { success: true, message: "Default voices initialized" };
+  },
+});
+
+// Internal mutation to create a default voice
+export const internalCreateDefaultVoice = mutation({
+  args: {
+    voiceId: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    previewStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("defaultVoices", {
+      voiceId: args.voiceId,
+      name: args.name,
+      description: args.description,
+      previewStorageId: args.previewStorageId,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// Get default voice by voiceId
+export const getDefaultVoiceByVoiceId = query({
+  args: { voiceId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("defaultVoices")
+      .withIndex("by_voiceId", (q) => q.eq("voiceId", args.voiceId))
+      .first();
+  },
+});
+
+// Update user's selected voice
+export const updateSelectedVoice = mutation({
+  args: {
+    userId: v.id("users"),
+    voiceId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      selectedVoiceId: args.voiceId,
+    });
+  },
+});
+
 // Internal mutation to update user onboarding
 export const internalCompleteOnboarding = internalMutation({
   args: {
