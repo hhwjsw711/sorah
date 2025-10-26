@@ -47,6 +47,11 @@ export default function Upload() {
     return null;
   }
 
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    setFiles(selectedFiles);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploading(true);
@@ -144,7 +149,7 @@ export default function Upload() {
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">
                 <input
                   type="file"
-                  onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                  onChange={handleFileSelection}
                   multiple
                   accept="image/*,video/*"
                   className="hidden"
@@ -157,6 +162,7 @@ export default function Upload() {
                     {files.length > 0 ? `${files.length} files selected` : "click to upload files"}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">5-10 videos or photos</p>
+                  <p className="text-xs text-blue-600 mt-1">📸 Images & video frames analyzed by AI</p>
                 </label>
               </div>
 
