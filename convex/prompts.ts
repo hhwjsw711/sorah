@@ -66,6 +66,8 @@ and save srt into the public/reelful.srt
 
 create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
 
+IMPORTANT: First, get the audio duration from audio.mp3 using ffprobe or similar. Calculate the exact duration in frames (at 30fps). Make sure your video composition is EXACTLY this duration. The total duration of all video segments MUST equal the audio duration. If needed, loop clips, extend clips, or add transitions to fill the entire audio duration. DO NOT let the video end before the audio - there should be NO frozen frames at the end.
+
 we use bun btw
 
 composition should be portrait!`,
@@ -81,6 +83,8 @@ read photos, and for each video extract first frame, and create .txt file with a
 then decide on how to edit them together by emotion: ${userPrompt}
 
 create new composition based on footage from public/reelful using audio.mp3 voice (1.25x sped up) + srt and baked in subtitles (https://www.remotion.dev/docs/recorder/exporting-subtitles#burn-subtitles). select 1-2-4 seconds segments from each video, organize videos in order, based on the freeze frames you have. start with the most interesting shot.
+
+IMPORTANT: First, get the audio duration from audio.mp3 using ffprobe or similar. Calculate the exact duration in frames (at 30fps). Make sure your video composition is EXACTLY this duration. The total duration of all video segments MUST equal the audio duration. If needed, loop clips, extend clips, or add transitions to fill the entire audio duration. DO NOT let the video end before the audio - there should be NO frozen frames at the end.
 
 we use bun btw
 
