@@ -195,6 +195,20 @@ export const renderVideo = action({
             const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
             await sandbox.files.write(sandboxPath, buffer);
             console.log(`[render] uploaded original video ${sanitizedFilename} to sandbox`);
+            
+            // Strip audio from the video so only voiceover and background music play
+            console.log(`[render] stripping audio from ${sanitizedFilename} to ensure only voiceover and music are heard`);
+            const mutedPath = `/home/user/public/media/${sanitizedFilename.replace(/\.(mp4|mov|avi|webm)$/i, '_muted.mp4')}`;
+            const stripAudioResult = await sandbox.commands.run(
+              `ffmpeg -i "${sandboxPath}" -c:v copy -an "${mutedPath}" -y && mv "${mutedPath}" "${sandboxPath}"`,
+              { timeoutMs: 60000 }
+            );
+            
+            if (stripAudioResult.exitCode !== 0) {
+              console.log(`[render] warning: failed to strip audio from ${sanitizedFilename}, will use original: ${stripAudioResult.stderr}`);
+            } else {
+              console.log(`[render] ✓ audio stripped from ${sanitizedFilename}`);
+            }
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to fetch file ${fileMeta.filename} (${i + 1}/${project.fileMetadata.length}): ${errorMsg}. This may be due to: 1) Expired storage URL (URLs expire after 1 hour), 2) Large file timeout, or 3) Network issues. Try re-uploading the file.`);
@@ -224,6 +238,15 @@ export const renderVideo = action({
             const sandboxPath = `/home/user/public/media/file${i}`;
             await sandbox.files.write(sandboxPath, buffer);
             console.log(`[render] uploaded file${i} to sandbox`);
+            
+            // Try to strip audio (assuming it's a video, won't hurt if it's not)
+            console.log(`[render] attempting to strip audio from file${i}`);
+            const mutedPath = `/home/user/public/media/file${i}_muted`;
+            const stripAudioResult = await sandbox.commands.run(
+              `ffmpeg -i "${sandboxPath}" -c:v copy -an "${mutedPath}" -y 2>/dev/null && mv "${mutedPath}" "${sandboxPath}" || true`,
+              { timeoutMs: 60000 }
+            );
+            console.log(`[render] audio stripping attempted for file${i}`);
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to fetch file ${i + 1}/${project.files.length}: ${errorMsg}. This may be due to expired storage URL or network issues.`);
@@ -1127,6 +1150,20 @@ export const step2UploadFiles = action({
             const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
             await sandbox.files.write(sandboxPath, buffer);
             console.log(`[step2] uploaded original video ${sanitizedFilename} to sandbox`);
+            
+            // Strip audio from the video so only voiceover and background music play
+            console.log(`[step2] stripping audio from ${sanitizedFilename} to ensure only voiceover and music are heard`);
+            const mutedPath = `/home/user/public/media/${sanitizedFilename.replace(/\.(mp4|mov|avi|webm)$/i, '_muted.mp4')}`;
+            const stripAudioResult = await sandbox.commands.run(
+              `ffmpeg -i "${sandboxPath}" -c:v copy -an "${mutedPath}" -y && mv "${mutedPath}" "${sandboxPath}"`,
+              { timeoutMs: 60000 }
+            );
+            
+            if (stripAudioResult.exitCode !== 0) {
+              console.log(`[step2] warning: failed to strip audio from ${sanitizedFilename}, will use original: ${stripAudioResult.stderr}`);
+            } else {
+              console.log(`[step2] ✓ audio stripped from ${sanitizedFilename}`);
+            }
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to fetch file ${fileMeta.filename}: ${errorMsg}. Storage URLs expire after 1 hour - try re-uploading the file if it's been a while.`);
