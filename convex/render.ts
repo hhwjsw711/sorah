@@ -155,8 +155,23 @@ export const renderVideo = action({
       
       if (project.fileMetadata && project.fileMetadata.length > 0) {
         console.log("[render] uploading original files with metadata...");
+        console.log("[render] Note: Skipping images (they have been animated), only uploading videos");
+        
         for (let i = 0; i < project.fileMetadata.length; i++) {
           const fileMeta = project.fileMetadata[i];
+          
+          // Skip images since they have been animated into videos
+          if (fileMeta.contentType.startsWith('image/')) {
+            console.log(`[render] Skipping image ${fileMeta.filename} (animated version will be used instead)`);
+            continue;
+          }
+          
+          // Only upload videos
+          if (!fileMeta.contentType.startsWith('video/')) {
+            console.log(`[render] Skipping non-video file ${fileMeta.filename} (${fileMeta.contentType})`);
+            continue;
+          }
+          
           // Get fresh URL to avoid expiration issues
           const fileUrl = await ctx.storage.getUrl(fileMeta.storageId);
           if (!fileUrl) {
@@ -165,7 +180,7 @@ export const renderVideo = action({
           }
           
           const sanitizedFilename = sanitizeFilename(fileMeta.filename);
-          console.log(`[render] fetching file ${i + 1}/${project.fileMetadata.length}: ${fileMeta.filename} -> ${sanitizedFilename}`);
+          console.log(`[render] fetching video ${i + 1}/${project.fileMetadata.length}: ${fileMeta.filename} -> ${sanitizedFilename}`);
           
           try {
             const response = await fetch(fileUrl);
@@ -179,7 +194,7 @@ export const renderVideo = action({
             
             const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
             await sandbox.files.write(sandboxPath, buffer);
-            console.log(`[render] uploaded ${sanitizedFilename} to sandbox`);
+            console.log(`[render] uploaded original video ${sanitizedFilename} to sandbox`);
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to fetch file ${fileMeta.filename} (${i + 1}/${project.fileMetadata.length}): ${errorMsg}. This may be due to: 1) Expired storage URL (URLs expire after 1 hour), 2) Large file timeout, or 3) Network issues. Try re-uploading the file.`);
@@ -253,26 +268,32 @@ export const renderVideo = action({
       }
 
       if (project.videoUrls && project.videoUrls.length > 0) {
+        console.log(`[render] Uploading ${project.videoUrls.length} FAL-animated videos (from images)...`);
+        
         for (let i = 0; i < project.videoUrls.length; i++) {
           if (project.videoUrls[i].includes("example.com")) {
             throw new Error(`Cannot render: videoUrls[${i}] (animated video ${i + 1}) is a simulated example.com URL. Please run AI processing first to generate real media files.`);
           }
           
-          console.log(`[render] fetching video ${i} from:`, project.videoUrls[i]);
+          console.log(`[render] Fetching FAL-animated video ${i + 1}/${project.videoUrls.length} from:`, project.videoUrls[i].substring(0, 80));
           const videoResponse = await fetch(project.videoUrls[i]);
           const videoBuffer = await videoResponse.arrayBuffer();
-          console.log(`[render] video ${i} fetched, size:`, videoBuffer.byteLength);
+          console.log(`[render] FAL video ${i + 1} fetched, size:`, (videoBuffer.byteLength / 1024 / 1024).toFixed(2), "MB");
           
           if (videoBuffer.byteLength < 1000) {
             throw new Error(`videoUrls[${i}] (animated video ${i + 1}) file is too small (${videoBuffer.byteLength} bytes). This likely means the URL is invalid or returns an error page.`);
           }
           
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
+          console.log(`[render] ✓ Uploaded FAL-animated video as video${i}.mp4`);
           
           if (i === 0) {
             await sandbox.files.write(`/home/user/public/reelful/video_2025-10-10_18-12-33%20(2).mp4`, videoBuffer);
           }
         }
+        console.log(`[render] ✓ All ${project.videoUrls.length} FAL-animated videos uploaded`);
+      } else {
+        console.log("[render] No FAL-animated videos to upload (no images were animated)");
       }
       console.log("[render] files uploaded");
 
@@ -1066,8 +1087,23 @@ export const step2UploadFiles = action({
       }
 
       if (project.fileMetadata && project.fileMetadata.length > 0) {
+        console.log("[step2] Note: Skipping images (they have been animated), only uploading videos");
+        
         for (let i = 0; i < project.fileMetadata.length; i++) {
           const fileMeta = project.fileMetadata[i];
+          
+          // Skip images since they have been animated into videos
+          if (fileMeta.contentType.startsWith('image/')) {
+            console.log(`[step2] Skipping image ${fileMeta.filename} (animated version will be used instead)`);
+            continue;
+          }
+          
+          // Only upload videos
+          if (!fileMeta.contentType.startsWith('video/')) {
+            console.log(`[step2] Skipping non-video file ${fileMeta.filename} (${fileMeta.contentType})`);
+            continue;
+          }
+          
           // Get fresh URL to avoid expiration issues
           const fileUrl = await ctx.storage.getUrl(fileMeta.storageId);
           if (!fileUrl) {
@@ -1076,7 +1112,7 @@ export const step2UploadFiles = action({
           }
           
           const sanitizedFilename = sanitizeFilename(fileMeta.filename);
-          console.log(`[step2] uploading ${fileMeta.filename} -> ${sanitizedFilename}`);
+          console.log(`[step2] uploading video ${fileMeta.filename} -> ${sanitizedFilename}`);
           
           try {
             const response = await fetch(fileUrl);
@@ -1090,7 +1126,7 @@ export const step2UploadFiles = action({
             
             const sandboxPath = `/home/user/public/media/${sanitizedFilename}`;
             await sandbox.files.write(sandboxPath, buffer);
-            console.log(`[step2] uploaded ${sanitizedFilename} to sandbox`);
+            console.log(`[step2] uploaded original video ${sanitizedFilename} to sandbox`);
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to fetch file ${fileMeta.filename}: ${errorMsg}. Storage URLs expire after 1 hour - try re-uploading the file if it's been a while.`);
@@ -1111,15 +1147,22 @@ export const step2UploadFiles = action({
       }
 
       if (project.videoUrls && project.videoUrls.length > 0) {
+        console.log(`[step2] Uploading ${project.videoUrls.length} FAL-animated videos (from images)...`);
+        
         for (let i = 0; i < project.videoUrls.length; i++) {
+          console.log(`[step2] Fetching FAL-animated video ${i + 1}/${project.videoUrls.length}`);
           const videoResponse = await fetch(project.videoUrls[i]);
           const videoBuffer = await videoResponse.arrayBuffer();
           await sandbox.files.write(`/home/user/public/media/video${i}.mp4`, videoBuffer);
+          console.log(`[step2] ✓ Uploaded FAL-animated video as video${i}.mp4`);
           
           if (i === 0) {
             await sandbox.files.write(`/home/user/public/reelful/video_2025-10-10_18-12-33%20(2).mp4`, videoBuffer);
           }
         }
+        console.log(`[step2] ✓ All ${project.videoUrls.length} FAL-animated videos uploaded`);
+      } else {
+        console.log("[step2] No FAL-animated videos to upload");
       }
 
       return { success: true };

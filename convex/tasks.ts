@@ -490,17 +490,44 @@ export const generateMediaAssets = action({
       console.log("[generate-media] step 3: animating images");
       const fileUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
       console.log("[generate-media] Total file URLs:", fileUrls.length);
-      const imageOnlyUrls = fileUrls.filter((url: string) => isImageUrl(url));
+      
+      // Filter images using fileMetadata contentType instead of URL extensions
+      const imageOnlyUrls: string[] = [];
+      if (project.fileMetadata && project.fileMetadata.length > 0) {
+        console.log("[generate-media] Using fileMetadata to identify images");
+        for (let i = 0; i < project.fileMetadata.length; i++) {
+          const meta = project.fileMetadata[i];
+          console.log(`[generate-media] File ${i + 1}: ${meta.filename}, type: ${meta.contentType}`);
+          
+          if (meta.contentType.startsWith('image/')) {
+            const url = fileUrls[i];
+            if (url) {
+              imageOnlyUrls.push(url);
+              console.log(`[generate-media] ✓ Found image: ${meta.filename} (${meta.contentType})`);
+            }
+          }
+        }
+      } else {
+        // Fallback to old method if no metadata
+        console.log("[generate-media] No fileMetadata, falling back to URL extension check");
+        imageOnlyUrls.push(...fileUrls.filter((url: string) => isImageUrl(url)));
+      }
+      
       console.log("[generate-media] Image URLs found:", imageOnlyUrls.length);
-      console.log("[generate-media] Will animate:", Math.min(imageOnlyUrls.length, 3), "images");
+      console.log("[generate-media] Will animate ALL images:", imageOnlyUrls.length);
       
       if (imageOnlyUrls.length === 0) {
         console.log("[generate-media] ⚠️ No images to animate! Skipping animation step.");
       }
       
-      for (let i = 0; i < Math.min(imageOnlyUrls.length, 3); i++) {
-        console.log(`[generate-media] Animating image ${i + 1}/${imageOnlyUrls.length}:`, imageOnlyUrls[i].substring(0, 80));
+      for (let i = 0; i < imageOnlyUrls.length; i++) {
+        console.log(`[generate-media] ========================================`);
+        console.log(`[generate-media] Processing image ${i + 1}/${imageOnlyUrls.length}`);
+        console.log(`[generate-media] Image URL:`, imageOnlyUrls[i].substring(0, 80));
+        console.log(`[generate-media] ========================================`);
+        
         try {
+          console.log(`[generate-media] Calling animateImage action...`);
           const animateResult = await ctx.runAction(api.aiServices.animateImage, {
             imageUrl: imageOnlyUrls[i],
           });
@@ -508,16 +535,29 @@ export const generateMediaAssets = action({
           console.log(`[generate-media] Animation result for image ${i + 1}:`, {
             success: animateResult.success,
             hasData: !!animateResult.data,
-            hasVideoUrl: !!(animateResult.data as any)?.video?.url,
-            error: animateResult.error
+            dataType: animateResult.data ? typeof animateResult.data : 'null',
+            error: animateResult.error,
+            requestId: (animateResult as any).requestId,
           });
 
+          if (animateResult.data) {
+            console.log(`[generate-media] Result data structure:`, JSON.stringify(animateResult.data, null, 2));
+          }
+
           if (animateResult.success && animateResult.data) {
-            const videoUrl = (animateResult.data as any).video?.url;
+            const data = animateResult.data as any;
+            console.log(`[generate-media] Checking for video URL in result...`);
+            console.log(`[generate-media] data.video exists:`, !!data.video);
+            console.log(`[generate-media] data.video?.url exists:`, !!data.video?.url);
+            
+            const videoUrl = data.video?.url;
             if (videoUrl) {
               videoUrls.push(videoUrl);
-              console.log(`[generate-media] ✅ Animated image ${i + 1}, URL:`, videoUrl.substring(0, 80));
+              console.log(`[generate-media] ✅ Animated image ${i + 1} SUCCESS`);
+              console.log(`[generate-media] Video URL:`, videoUrl);
+              console.log(`[generate-media] Total videos so far:`, videoUrls.length);
               
+              console.log(`[generate-media] Updating project with new video...`);
               await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
                 id: projectId,
                 script: project.script,
@@ -527,14 +567,21 @@ export const generateMediaAssets = action({
                 videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
                 status: "processing",
               });
+              console.log(`[generate-media] ✓ Project updated with ${videoUrls.length} videos`);
             } else {
-              console.log(`[generate-media] ⚠️ Image ${i + 1} animation succeeded but no video URL in result`);
+              console.error(`[generate-media] ❌ Image ${i + 1} animation succeeded but no video URL in result!`);
+              console.error(`[generate-media] Full result data:`, JSON.stringify(animateResult.data, null, 2));
             }
           } else {
-            console.log(`[generate-media] ❌ Image ${i + 1} animation failed:`, animateResult.error);
+            console.error(`[generate-media] ❌ Image ${i + 1} animation failed`);
+            console.error(`[generate-media] Error:`, animateResult.error);
+            console.error(`[generate-media] Full result:`, JSON.stringify(animateResult, null, 2));
           }
         } catch (error) {
-          console.error(`[generate-media] ❌ Exception animating image ${i + 1}:`, error);
+          console.error(`[generate-media] ❌ Exception animating image ${i + 1}`);
+          console.error(`[generate-media] Exception type:`, error?.constructor?.name);
+          console.error(`[generate-media] Exception message:`, error instanceof Error ? error.message : String(error));
+          console.error(`[generate-media] Full exception:`, error);
         }
       }
 
@@ -651,29 +698,72 @@ export const processProjectWithAI = action({
       }
 
       console.log("[ai-process] step 4: animating images");
-      const imageOnlyUrls = fileUrls.filter((url: string) => isImageUrl(url));
-      for (let i = 0; i < Math.min(imageOnlyUrls.length, 3); i++) {
-        console.log(`[ai-process] animating image ${i + 1}/${imageOnlyUrls.length}`);
-        const animateResult = await ctx.runAction(api.aiServices.animateImage, {
-          imageUrl: imageOnlyUrls[i],
-        });
-
-        if (animateResult.success && animateResult.data) {
-          const videoUrl = (animateResult.data).video?.url;
-          if (videoUrl) {
-            videoUrls.push(videoUrl);
-            console.log(`[ai-process] animated image ${i + 1}, saving progress...`);
-            
-            await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
-              id: projectId,
-              script,
-              audioUrl: audioUrl || undefined,
-              srtContent: srtContent || undefined,
-              musicUrl: musicUrl || undefined,
-              videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
-              status: "processing",
-            });
+      
+      // Filter images using fileMetadata contentType instead of URL extensions
+      const imageOnlyUrls: string[] = [];
+      if (project.fileMetadata && project.fileMetadata.length > 0) {
+        console.log("[ai-process] Using fileMetadata to identify images");
+        for (let i = 0; i < project.fileMetadata.length; i++) {
+          const meta = project.fileMetadata[i];
+          console.log(`[ai-process] File ${i + 1}: ${meta.filename}, type: ${meta.contentType}`);
+          
+          if (meta.contentType.startsWith('image/')) {
+            const url = fileUrls[i];
+            if (url) {
+              imageOnlyUrls.push(url);
+              console.log(`[ai-process] ✓ Found image: ${meta.filename} (${meta.contentType})`);
+            }
           }
+        }
+      } else {
+        // Fallback to old method if no metadata
+        console.log("[ai-process] No fileMetadata, falling back to URL extension check");
+        imageOnlyUrls.push(...fileUrls.filter((url: string) => isImageUrl(url)));
+      }
+      
+      console.log("[ai-process] Will animate ALL images:", imageOnlyUrls.length);
+      
+      for (let i = 0; i < imageOnlyUrls.length; i++) {
+        console.log(`[ai-process] ========================================`);
+        console.log(`[ai-process] Animating image ${i + 1}/${imageOnlyUrls.length}`);
+        console.log(`[ai-process] Image URL:`, imageOnlyUrls[i].substring(0, 80));
+        
+        try {
+          const animateResult = await ctx.runAction(api.aiServices.animateImage, {
+            imageUrl: imageOnlyUrls[i],
+          });
+
+          console.log(`[ai-process] Animation result:`, {
+            success: animateResult.success,
+            hasData: !!animateResult.data,
+            error: animateResult.error,
+          });
+
+          if (animateResult.success && animateResult.data) {
+            const videoUrl = (animateResult.data as any).video?.url;
+            if (videoUrl) {
+              videoUrls.push(videoUrl);
+              console.log(`[ai-process] ✅ Animated image ${i + 1}, video URL:`, videoUrl);
+              console.log(`[ai-process] Total videos: ${videoUrls.length}`);
+              
+              await ctx.runMutation(api.tasks.updateProjectWithReelfulData, {
+                id: projectId,
+                script,
+                audioUrl: audioUrl || undefined,
+                srtContent: srtContent || undefined,
+                musicUrl: musicUrl || undefined,
+                videoUrls: videoUrls.length > 0 ? videoUrls : undefined,
+                status: "processing",
+              });
+              console.log(`[ai-process] ✓ Project updated`);
+            } else {
+              console.error(`[ai-process] ❌ No video URL in animation result`);
+            }
+          } else {
+            console.error(`[ai-process] ❌ Animation failed:`, animateResult.error);
+          }
+        } catch (error) {
+          console.error(`[ai-process] ❌ Exception:`, error instanceof Error ? error.message : String(error));
         }
       }
 
@@ -863,24 +953,67 @@ export const regenerateAnimations = action({
         throw new Error("project not found");
       }
 
-      const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null && isImageUrl(url)) || [];
+      const fileUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
+      
+      // Filter images using fileMetadata contentType instead of URL extensions
+      const imageUrls: string[] = [];
+      if (project.fileMetadata && project.fileMetadata.length > 0) {
+        console.log("[regenerate-animations] Using fileMetadata to identify images");
+        for (let i = 0; i < project.fileMetadata.length; i++) {
+          const meta = project.fileMetadata[i];
+          console.log(`[regenerate-animations] File ${i + 1}: ${meta.filename}, type: ${meta.contentType}`);
+          
+          if (meta.contentType.startsWith('image/')) {
+            const url = fileUrls[i];
+            if (url) {
+              imageUrls.push(url);
+              console.log(`[regenerate-animations] ✓ Found image: ${meta.filename} (${meta.contentType})`);
+            }
+          }
+        }
+      } else {
+        // Fallback to old method if no metadata
+        console.log("[regenerate-animations] No fileMetadata, falling back to URL extension check");
+        imageUrls.push(...fileUrls.filter((url: string) => isImageUrl(url)));
+      }
+      
       if (imageUrls.length === 0) {
         throw new Error("no images found");
       }
 
+      console.log("[regenerate-animations] Will animate ALL images:", imageUrls.length);
       const videoUrls: string[] = [];
-      for (let i = 0; i < Math.min(imageUrls.length, 3); i++) {
-        console.log(`[regenerate-animations] animating image ${i + 1}/${imageUrls.length}`);
-        const animateResult = await ctx.runAction(api.aiServices.animateImage, {
-          imageUrl: imageUrls[i],
-        });
+      
+      for (let i = 0; i < imageUrls.length; i++) {
+        console.log(`[regenerate-animations] ========================================`);
+        console.log(`[regenerate-animations] Animating image ${i + 1}/${imageUrls.length}`);
+        console.log(`[regenerate-animations] Image URL:`, imageUrls[i].substring(0, 80));
+        
+        try {
+          const animateResult = await ctx.runAction(api.aiServices.animateImage, {
+            imageUrl: imageUrls[i],
+          });
 
-        if (animateResult.success && animateResult.data) {
-          const videoUrl = (animateResult.data).video?.url;
-          if (videoUrl) {
-            videoUrls.push(videoUrl);
-            console.log(`[regenerate-animations] animated image ${i + 1}`);
+          console.log(`[regenerate-animations] Result:`, {
+            success: animateResult.success,
+            hasData: !!animateResult.data,
+            error: animateResult.error,
+          });
+
+          if (animateResult.success && animateResult.data) {
+            const videoUrl = (animateResult.data as any).video?.url;
+            if (videoUrl) {
+              videoUrls.push(videoUrl);
+              console.log(`[regenerate-animations] ✅ Animated image ${i + 1}, URL:`, videoUrl);
+              console.log(`[regenerate-animations] Total videos: ${videoUrls.length}`);
+            } else {
+              console.error(`[regenerate-animations] ❌ No video URL in result`);
+            }
+          } else {
+            console.error(`[regenerate-animations] ❌ Animation failed:`, animateResult.error);
           }
+        } catch (error) {
+          console.error(`[regenerate-animations] ❌ Exception:`, error instanceof Error ? error.message : String(error));
         }
       }
 

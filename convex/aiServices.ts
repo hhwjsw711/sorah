@@ -52,23 +52,39 @@ export const animateImage = action({
     prompt: v.optional(v.string()),
   },
   handler: async (ctx, { imageUrl, prompt = prompts.imageAnimation.default }) => {
-    console.log("[animate] animating image:", imageUrl);
+    console.log("[animate] ========================================");
+    console.log("[animate] Starting image animation");
+    console.log("[animate] Image URL:", imageUrl.substring(0, 100));
+    console.log("[animate] Prompt:", prompt);
+    console.log("[animate] ========================================");
     
     try {
       const apiKey = process.env.FAL_API_KEY;
       if (!apiKey) {
+        console.error("[animate] ❌ FAL_API_KEY not set in environment variables");
         throw new Error("FAL_API_KEY not set");
       }
+      console.log("[animate] ✓ FAL_API_KEY found");
 
       fal.config({ credentials: apiKey });
 
-      console.log("[animate] fetching image to upload to FAL storage");
+      console.log("[animate] Step 1: Fetching image to upload to FAL storage");
       const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        console.error("[animate] ❌ Failed to fetch image:", imageResponse.status, imageResponse.statusText);
+        throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
+      }
       const imageBlob = await imageResponse.blob();
+      console.log("[animate] ✓ Image fetched, size:", (imageBlob.size / 1024 / 1024).toFixed(2), "MB");
       
+      console.log("[animate] Step 2: Uploading image to FAL storage");
       const falImageUrl = await fal.storage.upload(imageBlob);
-      console.log("[animate] image uploaded to FAL storage:", falImageUrl);
+      console.log("[animate] ✓ Image uploaded to FAL storage:", falImageUrl);
 
+      console.log("[animate] Step 3: Calling FAL API to animate image");
+      console.log("[animate] API endpoint: fal-ai/kling-video/v2.5-turbo/pro/image-to-video");
+      console.log("[animate] Request params:", JSON.stringify({ prompt, image_url: falImageUrl }, null, 2));
+      
       const result = await fal.subscribe("fal-ai/kling-video/v2.5-turbo/pro/image-to-video", {
         input: {
           prompt,
@@ -76,19 +92,63 @@ export const animateImage = action({
         },
         logs: true,
         onQueueUpdate: (update) => {
+          console.log("[animate] Queue status:", update.status);
           if (update.status === "IN_PROGRESS") {
-            update.logs.map((log) => log.message).forEach((msg) => console.log("[animate]", msg));
+            update.logs.map((log) => log.message).forEach((msg) => console.log("[animate] FAL log:", msg));
+          }
+          if (update.status === "IN_QUEUE") {
+            console.log("[animate] Position in queue:", (update as any).position);
           }
         },
       });
 
-      console.log("[animate] animation complete");
+      console.log("[animate] ✓ FAL API call completed");
+      console.log("[animate] Result structure:", JSON.stringify({
+        requestId: result.requestId,
+        hasData: !!result.data,
+        dataKeys: result.data ? Object.keys(result.data) : [],
+      }, null, 2));
+      
+      if (result.data) {
+        const data = result.data as any;
+        console.log("[animate] Result data:", JSON.stringify(result.data, null, 2));
+        
+        if (data.video && data.video.url) {
+          console.log("[animate] ✓ Video URL found:", data.video.url);
+        } else {
+          console.error("[animate] ❌ No video URL in result data!");
+          console.error("[animate] Full data:", JSON.stringify(result.data, null, 2));
+        }
+      }
+
+      console.log("[animate] ========================================");
+      console.log("[animate] Animation complete - SUCCESS");
+      console.log("[animate] ========================================");
       return { success: true, data: result.data, requestId: result.requestId };
     } catch (error) {
-      console.error("[animate] error:", error);
-      if (error && typeof error === 'object' && 'body' in error) {
-        console.error("[animate] error details:", JSON.stringify((error as { body: unknown }).body));
+      console.error("[animate] ========================================");
+      console.error("[animate] ❌ ERROR during animation");
+      console.error("[animate] Error type:", error?.constructor?.name);
+      console.error("[animate] Error message:", error instanceof Error ? error.message : String(error));
+      
+      if (error && typeof error === 'object') {
+        if ('body' in error) {
+          console.error("[animate] Error body:", JSON.stringify((error as { body: unknown }).body, null, 2));
+        }
+        if ('response' in error) {
+          console.error("[animate] Error response:", JSON.stringify((error as { response: unknown }).response, null, 2));
+        }
+        if ('statusCode' in error) {
+          console.error("[animate] Status code:", (error as { statusCode: unknown }).statusCode);
+        }
+        // Log all error properties
+        console.error("[animate] Error keys:", Object.keys(error));
+        console.error("[animate] Full error:", JSON.stringify(error, null, 2));
       }
+      
+      console.error("[animate] Stack trace:", error instanceof Error ? error.stack : 'N/A');
+      console.error("[animate] ========================================");
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : "animation failed",

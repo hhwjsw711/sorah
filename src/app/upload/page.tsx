@@ -126,7 +126,7 @@ export default function Upload() {
             create project
           </h1>
           <p className="text-gray-600 mb-2">upload images and videos, describe your idea</p>
-          <p className="text-sm text-gray-500 mb-8">ai will generate script, voiceover, music, and animate your images into videos</p>
+          <p className="text-sm text-gray-500 mb-8">ai will generate script, voiceover, and music for your content</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -162,7 +162,6 @@ export default function Upload() {
                     {files.length > 0 ? `${files.length} files selected` : "click to upload files"}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">5-10 videos or photos</p>
-                  <p className="text-xs text-blue-600 mt-1">📸 Images & video frames analyzed by AI</p>
                 </label>
               </div>
 
