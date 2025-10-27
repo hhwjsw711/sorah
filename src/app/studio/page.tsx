@@ -36,7 +36,8 @@ export default function Studio() {
   
   const generateUploadUrl = useMutation(api.tasks.generateUploadUrl);
   const createProject = useMutation(api.tasks.createProject);
-  const processProjectWithAI = useAction(api.tasks.processProjectWithAI);
+  const generateScriptOnly = useAction(api.tasks.generateScriptOnly);
+  const generateMediaAssets = useAction(api.tasks.generateMediaAssets);
   const updateProjectScript = useMutation(api.tasks.updateProjectScript);
   const renderVideo = useAction(api.render.renderVideo);
   
@@ -90,13 +91,60 @@ export default function Studio() {
     }
   }, [project, step]);
 
-  // Auto-trigger render when AI processing completes
+  // Auto-trigger render when ALL media assets are ready
   useEffect(() => {
-    if (!project || !projectId || step !== "generating") return;
+    console.log("[studio] useEffect triggered - project:", project?._id, "step:", step);
     
-    // When AI processing is complete but video not rendered yet
-    if (project.status === "completed" && !project.renderedVideoUrl && !project.renderProgress && !renderTriggeredRef.current) {
-      console.log("[studio] AI processing complete, triggering render...");
+    if (!project || !projectId || step !== "generating") {
+      console.log("[studio] Skipping render check:", {
+        hasProject: !!project,
+        hasProjectId: !!projectId,
+        step: step,
+        shouldBeGenerating: step === "generating"
+      });
+      return;
+    }
+    
+    // Check if all required media assets are ready
+    // Note: videoUrls are optional if user uploaded videos instead of images
+    const hasAllMediaAssets = !!(
+      project.audioUrl && 
+      project.musicUrl
+    );
+    
+    // Log what we're checking
+    const hasAnimations = !!(project.videoUrls && project.videoUrls.length > 0);
+    console.log("[studio] Asset check:", {
+      hasAudio: !!project.audioUrl,
+      hasMusic: !!project.musicUrl,
+      hasAnimations,
+      animationCount: project.videoUrls?.length || 0
+    });
+    
+    console.log("[studio] Render check conditions:", {
+      status: project.status,
+      hasAllMediaAssets,
+      audioUrl: project.audioUrl ? "✓" : "✗",
+      musicUrl: project.musicUrl ? "✓" : "✗",
+      videoUrlsCount: project.videoUrls?.length || 0,
+      hasRenderedVideoUrl: !!project.renderedVideoUrl,
+      hasRenderProgress: !!project.renderProgress,
+      renderTriggered: renderTriggeredRef.current
+    });
+    
+    // Only trigger render when status is completed AND all media assets exist
+    if (
+      project.status === "completed" && 
+      hasAllMediaAssets &&
+      !project.renderedVideoUrl && 
+      !project.renderProgress && 
+      !renderTriggeredRef.current
+    ) {
+      console.log("[studio] ✅ All media assets ready! Triggering render...");
+      console.log("[studio]   - audioUrl:", project.audioUrl ? "✓" : "✗");
+      console.log("[studio]   - musicUrl:", project.musicUrl ? "✓" : "✗");
+      console.log("[studio]   - videoUrls:", project.videoUrls?.length || 0, "videos");
+      
       renderTriggeredRef.current = true;
       setGenerationProgress("Starting video render...");
       
@@ -105,6 +153,11 @@ export default function Studio() {
         setGenerationProgress(`Render error: ${error}`);
         renderTriggeredRef.current = false; // Reset on error so user can retry
       });
+    } else if (project.status === "completed" && !hasAllMediaAssets && !renderTriggeredRef.current) {
+      console.log("[studio] ⏳ Waiting for all media assets...");
+      console.log("[studio]   - audioUrl:", project.audioUrl ? "✓" : "✗");
+      console.log("[studio]   - musicUrl:", project.musicUrl ? "✓" : "✗");
+      console.log("[studio]   - videoUrls:", project.videoUrls?.length || 0, "videos");
     }
   }, [project, projectId, step, renderVideo]);
 
@@ -199,11 +252,12 @@ export default function Studio() {
       
       setProjectId(newProjectId);
       
-      // Start AI processing
-      processProjectWithAI({
+      // Start script generation only (Phase 1)
+      console.log("[studio] Starting script generation for project:", newProjectId);
+      generateScriptOnly({
         projectId: newProjectId,
       }).catch((error) => {
-        console.error("ai processing error:", error);
+        console.error("script generation error:", error);
       });
       
       setUploading(false);
@@ -219,11 +273,21 @@ export default function Studio() {
     
     // Save edited script if needed
     if (editingScript && generatedScript !== project?.script) {
+      console.log("[studio] Saving edited script...");
       await updateProjectScript({ id: projectId, script: generatedScript });
     }
     
     setStep("generating");
-    setGenerationProgress("Starting video generation...");
+    setGenerationProgress("Generating voiceover and music from your script...");
+    
+    // Start media generation (Phase 2: voice, music, animations)
+    console.log("[studio] Starting media asset generation for project:", projectId);
+    generateMediaAssets({
+      projectId: projectId,
+    }).catch((error) => {
+      console.error("media generation error:", error);
+      setGenerationProgress(`Error: ${error}`);
+    });
   };
 
   const handleStartOver = () => {
