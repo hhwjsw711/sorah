@@ -218,6 +218,16 @@ export const updateProjectScript = mutation({
   },
 });
 
+export const markProjectSubmitted = mutation({
+  args: {
+    id: v.id("projects"),
+  },
+  handler: async (ctx, { id }) => {
+    await ctx.db.patch(id, { submittedAt: Date.now() });
+    return { id };
+  },
+});
+
 export const updateProjectWithRenderResult = mutation({
   args: {
     id: v.id("projects"),

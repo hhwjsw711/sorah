@@ -32,6 +32,7 @@ export default function Studio() {
   const [generatedScript, setGeneratedScript] = useState("");
   const [editingScript, setEditingScript] = useState(false);
   const [generationProgress, setGenerationProgress] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const renderTriggeredRef = useRef(false);
   
   const generateUploadUrl = useMutation(api.tasks.generateUploadUrl);
@@ -39,6 +40,7 @@ export default function Studio() {
   const generateScriptOnly = useAction(api.tasks.generateScriptOnly);
   const generateMediaAssets = useAction(api.tasks.generateMediaAssets);
   const updateProjectScript = useMutation(api.tasks.updateProjectScript);
+  const markProjectSubmitted = useMutation(api.tasks.markProjectSubmitted);
   const renderVideo = useAction(api.render.renderVideo);
   
   const project = useQuery(
@@ -162,6 +164,19 @@ export default function Studio() {
     }
   }, [project, projectId, step, renderVideo]);
 
+  // Live timer during generation
+  useEffect(() => {
+    if (step === "generating" && project?.submittedAt) {
+      const interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - project.submittedAt) / 1000);
+        setElapsedSeconds(elapsed);
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setElapsedSeconds(0);
+    }
+  }, [step, project?.submittedAt]);
+
   // Simulate animation for images
   useEffect(() => {
     if (filesWithPreview.length > 0) {
@@ -279,6 +294,9 @@ export default function Studio() {
       const scriptToSave = generatedScript.replace(/\?(?!\?\?)/g, "???");
       await updateProjectScript({ id: projectId, script: scriptToSave });
     }
+    
+    // Mark submission timestamp for timing
+    await markProjectSubmitted({ id: projectId });
     
     setStep("generating");
     setGenerationProgress("Generating voiceover and music from your script...");
@@ -537,6 +555,13 @@ export default function Studio() {
     );
   }
 
+  // Helper function to format seconds
+  const formatSeconds = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
   // GENERATING STEP
   if (step === "generating") {
     return (
@@ -548,6 +573,14 @@ export default function Studio() {
             <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
               creating your video
             </h1>
+            
+            {elapsedSeconds > 0 && (
+              <div className="mb-4">
+                <p className="text-2xl font-bold text-purple-600">
+                  ⏱️ {formatSeconds(elapsedSeconds)}
+                </p>
+              </div>
+            )}
             
             <p className="text-gray-600 text-lg mb-8">
               {generationProgress || "Preparing..."}
@@ -592,8 +625,28 @@ export default function Studio() {
     );
   }
 
+  // Helper function to format elapsed time
+  const formatElapsedTime = (startTime: number, endTime: number) => {
+    const elapsedMs = endTime - startTime;
+    const seconds = Math.floor(elapsedMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    } else {
+      return `${seconds}s`;
+    }
+  };
+
   // COMPLETE STEP
   if (step === "complete") {
+    const elapsedTime = project?.submittedAt && project?.completedAt 
+      ? formatElapsedTime(project.submittedAt, project.completedAt)
+      : null;
+
     return (
       <main className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
         <div className="max-w-4xl mx-auto px-6 py-16">
@@ -604,6 +657,13 @@ export default function Studio() {
                 your video is ready!
               </h1>
               <p className="text-gray-600">download and share your creation</p>
+              {elapsedTime && (
+                <div className="mt-4 inline-block px-4 py-2 bg-purple-100 rounded-full">
+                  <p className="text-sm text-purple-800">
+                    ⏱️ generated in <span className="font-bold">{elapsedTime}</span>
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Video Player */}

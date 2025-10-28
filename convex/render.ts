@@ -1092,7 +1092,7 @@ export const step2UploadFiles = action({
       const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
 
       if (project.srtContent && project.srtContent.trim().length > 0) {
-        console.log("[step2] uploading srt via storage");
+        console.log("[step2] uploading srt via storage (generated with voice)");
         const srtBuffer = Buffer.from(project.srtContent, 'utf-8');
         const srtUploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
         const srtUploadResponse = await fetch(srtUploadUrl, {
@@ -1106,7 +1106,10 @@ export const step2UploadFiles = action({
         if (srtUrl) {
           await sandbox.commands.run(`curl -o /home/user/public/reelful-fast.srt "${srtUrl}"`);
           await sandbox.commands.run(`curl -o /home/user/public/media/subtitles.srt "${srtUrl}"`);
+          console.log("[step2] ✓ SRT file uploaded to sandbox (subtitles.srt and reelful-fast.srt)");
         }
+      } else {
+        console.warn("[step2] ⚠️  No SRT content found - voice generation may not have completed. Step 3 will fail without SRT.");
       }
 
       if (project.fileMetadata && project.fileMetadata.length > 0) {
@@ -1234,6 +1237,11 @@ export const step3RunVideoEditor = action({
       const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
       if (!project) throw new Error("project not found");
       if (!project.sandboxId) throw new Error("sandbox not found");
+      
+      // Ensure SRT content exists (should have been generated with voice and uploaded in step2)
+      if (!project.srtContent || project.srtContent.trim().length === 0) {
+        throw new Error("SRT content not found - please ensure voice generation completed successfully before running video editor");
+      }
 
       const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
 
