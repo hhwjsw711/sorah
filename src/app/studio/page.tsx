@@ -60,7 +60,8 @@ export default function Studio() {
     if (!project) return;
 
     if (step === "input" && project.script) {
-      setGeneratedScript(project.script);
+      // Replace ??? with ? for display
+      setGeneratedScript(project.script.replace(/\?\?\?/g, "?"));
       setStep("script_review");
     }
 
@@ -274,7 +275,9 @@ export default function Studio() {
     // Save edited script if needed
     if (editingScript && generatedScript !== project?.script) {
       console.log("[studio] Saving edited script...");
-      await updateProjectScript({ id: projectId, script: generatedScript });
+      // Replace ? with ??? before saving (but not if it's already ???)
+      const scriptToSave = generatedScript.replace(/\?(?!\?\?)/g, "???");
+      await updateProjectScript({ id: projectId, script: scriptToSave });
     }
     
     setStep("generating");
@@ -480,7 +483,7 @@ export default function Studio() {
                 ) : (
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                      {generatedScript}
+                      {generatedScript.replace(/\?\?\?/g, "?")}
                     </p>
                   </div>
                 )}
