@@ -473,8 +473,9 @@ export const generateScript = action({
   args: {
     prompt: v.string(),
     imageUrls: v.optional(v.array(v.string())),
+    style: v.optional(v.string()),
   },
-  handler: async (ctx, { prompt, imageUrls = [] }) => {
+  handler: async (ctx, { prompt, imageUrls = [], style = "professional" }) => {
     console.log("[script] generating script for prompt:", prompt);
     console.log("[script] processing", imageUrls.length, "media files");
     
@@ -646,7 +647,7 @@ export const generateScript = action({
         console.warn("[script] no valid images found, generating script from prompt only");
         const { text } = await generateText({
           model: openai("gpt-4o"),
-          system: prompts.scriptGeneration.system,
+          system: prompts.scriptGeneration.system(style),
           prompt: `${prompt}\n\nNote: No visual media was provided or could be processed. Create the script based solely on the text prompt above.`,
         });
         
@@ -657,7 +658,7 @@ export const generateScript = action({
 
       const { text } = await generateText({
         model: openai("gpt-4o"), // Using gpt-4o for vision support
-        system: prompts.scriptGeneration.system,
+        system: prompts.scriptGeneration.system(style),
         messages: [
           {
             role: "user",

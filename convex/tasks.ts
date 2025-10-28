@@ -384,11 +384,22 @@ export const generateScriptOnly = action({
         throw new Error("project not found");
       }
 
+      // Get user's preferred style
+      let style = "professional"; // default
+      if (project.userId) {
+        const user = await ctx.runQuery(api.users.getCurrentUser, { userId: project.userId });
+        if (user?.preferredStyle) {
+          style = user.preferredStyle;
+          console.log("[generate-script] using user's preferred style:", style);
+        }
+      }
+
       console.log("[generate-script] generating script from prompt and images");
       const fileUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
       const scriptResult = await ctx.runAction(api.aiServices.generateScript, {
         prompt: project.prompt,
         imageUrls: fileUrls,
+        style,
       });
 
       if (!scriptResult.success) {
@@ -452,8 +463,9 @@ export const generateMediaAssets = action({
       });
 
       console.log("[generate-media] step 1: generating voiceover");
-      // Get user's custom voice ID if available
+      // Get user's custom voice ID and preferred style if available
       let voiceId: string | undefined;
+      let style = "professional"; // default
       if (project.userId) {
         const user = await ctx.runQuery(api.users.getCurrentUser, { userId: project.userId });
         // Use selected voice if available, otherwise fall back to custom voice
@@ -463,6 +475,11 @@ export const generateMediaAssets = action({
         } else if (user?.elevenlabsVoiceId) {
           voiceId = user.elevenlabsVoiceId;
           console.log("[generate-media] using user's custom voice ID:", voiceId);
+        }
+        // Get user's preferred style
+        if (user?.preferredStyle) {
+          style = user.preferredStyle;
+          console.log("[generate-media] using user's preferred style:", style);
         }
       }
       
@@ -488,7 +505,7 @@ export const generateMediaAssets = action({
       console.log("[generate-media] music duration (voiceover / 1.25):", adjustedMusicDuration, "ms");
       
       const musicResult = await ctx.runAction(api.aiServices.generateMusic, {
-        prompt: prompts.musicGeneration.default,
+        prompt: prompts.musicGeneration.prompt(style),
         durationMs: adjustedMusicDuration,
       });
 
@@ -647,11 +664,22 @@ export const processProjectWithAI = action({
         throw new Error("project not found");
       }
 
+      // Get user's preferred style
+      let style = "professional"; // default
+      if (project.userId) {
+        const user = await ctx.runQuery(api.users.getCurrentUser, { userId: project.userId });
+        if (user?.preferredStyle) {
+          style = user.preferredStyle;
+          console.log("[ai-process] using user's preferred style:", style);
+        }
+      }
+
       console.log("[ai-process] step 1: generating script");
       const fileUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
       const scriptResult = await ctx.runAction(api.aiServices.generateScript, {
         prompt: project.prompt,
         imageUrls: fileUrls,
+        style,
       });
 
       if (!scriptResult.success) {
@@ -698,7 +726,7 @@ export const processProjectWithAI = action({
       console.log("[ai-process] music duration (voiceover / 1.25):", adjustedMusicDuration, "ms");
       
       const musicResult = await ctx.runAction(api.aiServices.generateMusic, {
-        prompt: prompts.musicGeneration.default,
+        prompt: prompts.musicGeneration.prompt(style),
         durationMs: adjustedMusicDuration,
       });
 
@@ -823,10 +851,21 @@ export const regenerateScript = action({
         throw new Error("project not found");
       }
 
+      // Get user's preferred style
+      let style = "professional"; // default
+      if (project.userId) {
+        const user = await ctx.runQuery(api.users.getCurrentUser, { userId: project.userId });
+        if (user?.preferredStyle) {
+          style = user.preferredStyle;
+          console.log("[regenerate-script] using user's preferred style:", style);
+        }
+      }
+
       const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null) || [];
       const scriptResult = await ctx.runAction(api.aiServices.generateScript, {
         prompt: project.prompt,
         imageUrls,
+        style,
       });
 
       if (!scriptResult.success) {
@@ -1076,8 +1115,18 @@ export const regenerateMusic = action({
         throw new Error("project not found");
       }
 
+      // Get user's preferred style
+      let style = "professional"; // default
+      if (project.userId) {
+        const user = await ctx.runQuery(api.users.getCurrentUser, { userId: project.userId });
+        if (user?.preferredStyle) {
+          style = user.preferredStyle;
+          console.log("[regenerate-music] using user's preferred style:", style);
+        }
+      }
+
       const musicResult = await ctx.runAction(api.aiServices.generateMusic, {
-        prompt: prompts.musicGeneration.default,
+        prompt: prompts.musicGeneration.prompt(style),
         durationMs: 15000,
       });
 

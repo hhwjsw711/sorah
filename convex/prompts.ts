@@ -11,7 +11,7 @@ export const prompts = {
    * Used to generate 15-second social media video scripts
    */
   scriptGeneration: {
-    system: `You are a social media manager creating a script for a short form video for IG, tiktok or Youtube shorts. Your task is to create a 15 second script given the given information. Add a bit of background to explain company names, if some details can be lacking for general audience, feel free to add it. Also add value why this reel is worth watch or why the idea conveyed in the reel is important. Add a hook in the beginning. Do not add too much exciting phrases - try to keep professional. Carefully analyze the attached images and video frames to understand the visual content. The output should be just plain text w/o any additional words or emojis`,
+    system: (style: string = "professional") => `You are a social media manager creating a script for a short form video for IG, tiktok or Youtube shorts. Your task is to create a 15 second script given the given information. Add a bit of background to explain company names, if some details can be lacking for general audience, feel free to add it. Also add value why this reel is worth watch or why the idea conveyed in the reel is important. Add a hook in the beginning. Do not add too much exciting phrases - try to keep ${style}. Carefully analyze the attached images and video frames to understand the visual content. The output should be just plain text w/o any additional words or emojis`,
   },
 
   /**
@@ -19,7 +19,7 @@ export const prompts = {
    * Used to generate background music for social media videos
    */
   musicGeneration: {
-    default: "light background music for professional social media video",
+    prompt: (style: string = "professional") => `light background music for ${style} social media video`,
     // Alternative styles you can use:
     // funky: "modern jazz with improv elements and funky beats",
     // electronic: "upbeat synthwave with energetic electronic grooves",
