@@ -53,6 +53,8 @@ export const prompts = {
      */
     generate: (userPrompt: string = 'create an engaging social media video') => `remotion.dev - add new composition using ls public/media files.
 
+NOTE: All video files have been converted to MP4 format with H264 codec for browser compatibility. Videos have audio removed (silent) - you'll add voiceover and music.
+
 read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
 
 then decide on how to edit them together by remotion: ${userPrompt}
@@ -77,6 +79,8 @@ composition should be portrait!`,
      * Used in step3RunVideoEditor
      */
     generateSimplified: (userPrompt: string = 'create an engaging social media video') => `remotion.dev - add new composition using ls public/media files.
+
+NOTE: All video files have been converted to MP4 format with H264 codec for browser compatibility. Videos have audio removed (silent) - you'll add voiceover and music.
 
 read photos, and for each video extract first frame, and create .txt file with a description what's in the video — the first frames of the video, it's for you. you will use the full videos in the composition.
 

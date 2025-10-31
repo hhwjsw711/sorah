@@ -196,19 +196,43 @@ export const renderVideo = action({
             await sandbox.files.write(sandboxPath, buffer);
             console.log(`[render] uploaded original video ${sanitizedFilename} to sandbox`);
             
-            // Strip audio from the video so only voiceover and background music play
-            console.log(`[render] stripping audio from ${sanitizedFilename} to ensure only voiceover and music are heard`);
-            const mutedPath = `/home/user/public/media/${sanitizedFilename.replace(/\.(mp4|mov|avi|webm)$/i, '_muted.mp4')}`;
-            const stripAudioResult = await sandbox.commands.run(
-              `ffmpeg -i "${sandboxPath}" -c:v copy -an "${mutedPath}" -y && mv "${mutedPath}" "${sandboxPath}"`,
-              { timeoutMs: 60000 }
+            // Convert to MP4 and strip audio for better browser compatibility
+            console.log(`[render] converting ${sanitizedFilename} to MP4 and stripping audio...`);
+            const mp4Filename = sanitizedFilename.replace(/\.(mov|avi|webm|mkv)$/i, '.mp4');
+            const mp4Path = `/home/user/public/media/${mp4Filename}`;
+            
+            // Convert to browser-compatible MP4 with H264 codec and strip audio
+            const convertResult = await sandbox.commands.run(
+              `ffmpeg -i "${sandboxPath}" -c:v libx264 -preset fast -crf 23 -an -movflags +faststart "${mp4Path}" -y`,
+              { timeoutMs: 120000 }
             );
             
-            if (stripAudioResult.exitCode !== 0) {
-              console.log(`[render] warning: failed to strip audio from ${sanitizedFilename}, will use original: ${stripAudioResult.stderr}`);
+            if (convertResult.exitCode !== 0) {
+              console.log(`[render] warning: conversion failed, trying simple copy: ${convertResult.stderr}`);
+              // Fallback: just strip audio without re-encoding
+              const fallbackResult = await sandbox.commands.run(
+                `ffmpeg -i "${sandboxPath}" -c:v copy -an "${mp4Path}" -y`,
+                { timeoutMs: 60000 }
+              );
+              if (fallbackResult.exitCode !== 0) {
+                console.log(`[render] warning: audio stripping also failed, using original file: ${fallbackResult.stderr}`);
+              } else {
+                console.log(`[render] ✓ audio stripped (no conversion) -> ${mp4Filename}`);
+                if (mp4Filename !== sanitizedFilename) {
+                  await sandbox.commands.run(`rm "${sandboxPath}"`);
+                }
+              }
             } else {
-              console.log(`[render] ✓ audio stripped from ${sanitizedFilename}`);
+              console.log(`[render] ✓ converted to MP4 and stripped audio -> ${mp4Filename}`);
+              // Remove original if different filename
+              if (mp4Filename !== sanitizedFilename) {
+                await sandbox.commands.run(`rm "${sandboxPath}"`);
+              }
             }
+            
+            // Verify the file exists and is readable
+            const verifyResult = await sandbox.commands.run(`ls -lh "${mp4Path}"`);
+            console.log(`[render] verification: ${verifyResult.stdout}`);
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to fetch file ${fileMeta.filename} (${i + 1}/${project.fileMetadata.length}): ${errorMsg}. This may be due to: 1) Expired storage URL (URLs expire after 1 hour), 2) Large file timeout, or 3) Network issues. Try re-uploading the file.`);
@@ -320,6 +344,17 @@ export const renderVideo = action({
       }
       console.log("[render] files uploaded");
 
+      // Clean up any temporary download files to free disk space
+      console.log("[render] cleaning up temporary files after upload...");
+      await sandbox.commands.run(`rm -rf /tmp/* 2>/dev/null || true`);
+      
+      const diskUsage = await sandbox.commands.run(`df -h /home/user`);
+      console.log("[render] disk usage after upload:", diskUsage.stdout);
+
+      // List all media files for debugging
+      const mediaFiles = await sandbox.commands.run(`ls -lh /home/user/public/media/`);
+      console.log("[render] media files available:", mediaFiles.stdout);
+
       console.log("[render] running claude agent to edit video...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
@@ -349,7 +384,27 @@ export const renderVideo = action({
         throw new Error(`claude video editing failed: ${claudeResult.stderr}`);
       }
 
-      console.log("[render] claude completed, now running remotion render...");
+      console.log("[render] claude completed, now cleaning up disk space...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "preparing render",
+        details: "cleaning up temporary files to free disk space",
+      });
+
+      // Clean up temporary files and caches to free disk space
+      await sandbox.commands.run(`
+        rm -rf /tmp/* /var/tmp/* 2>/dev/null || true;
+        rm -rf ~/.bun/install/cache/* 2>/dev/null || true;
+        rm -rf ~/.cache/* 2>/dev/null || true;
+        rm -rf /home/user/.cache/* 2>/dev/null || true;
+        rm -rf /home/user/node_modules/.cache/* 2>/dev/null || true;
+      `);
+      
+      console.log("[render] disk cleanup complete, checking disk usage...");
+      const diskCheck = await sandbox.commands.run(`df -h /home/user`);
+      console.log("[render] disk usage:", diskCheck.stdout);
+
+      console.log("[render] running remotion render...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
         step: "rendering video",
@@ -934,6 +989,25 @@ export const renderFinalVideo = action({
       console.log("[render-final] connecting to sandbox:", project.sandboxId);
       const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
 
+      console.log("[render-final] cleaning up disk space before render...");
+      await ctx.runMutation(api.tasks.updateRenderProgress, {
+        id: projectId,
+        step: "preparing render",
+        details: "cleaning up temporary files to free disk space",
+      });
+
+      // Clean up temporary files and caches to free disk space
+      await sandbox.commands.run(`
+        rm -rf /tmp/* /var/tmp/* 2>/dev/null || true;
+        rm -rf ~/.bun/install/cache/* 2>/dev/null || true;
+        rm -rf ~/.cache/* 2>/dev/null || true;
+        rm -rf /home/user/.cache/* 2>/dev/null || true;
+        rm -rf /home/user/node_modules/.cache/* 2>/dev/null || true;
+      `);
+      
+      const diskCheck = await sandbox.commands.run(`df -h /home/user`);
+      console.log("[render-final] disk usage after cleanup:", diskCheck.stdout);
+
       console.log("[render-final] running remotion render...");
       await ctx.runMutation(api.tasks.updateRenderProgress, {
         id: projectId,
@@ -1294,6 +1368,19 @@ export const step4RenderSequence = action({
       if (!project.sandboxId) throw new Error("sandbox not found");
 
       const sandbox = await Sandbox.connect(project.sandboxId, { timeoutMs: 3600000 });
+
+      console.log("[step4] cleaning up disk space before render...");
+      // Clean up temporary files and caches to free disk space
+      await sandbox.commands.run(`
+        rm -rf /tmp/* /var/tmp/* 2>/dev/null || true;
+        rm -rf ~/.bun/install/cache/* 2>/dev/null || true;
+        rm -rf ~/.cache/* 2>/dev/null || true;
+        rm -rf /home/user/.cache/* 2>/dev/null || true;
+        rm -rf /home/user/node_modules/.cache/* 2>/dev/null || true;
+      `);
+      
+      const diskCheck = await sandbox.commands.run(`df -h /home/user`);
+      console.log("[step4] disk usage after cleanup:", diskCheck.stdout);
 
       console.log("[step4] running bun remotion render...");
       const remotionResult = await sandbox.commands.run(`bun remotion render`, {
