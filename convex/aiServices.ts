@@ -534,8 +534,9 @@ export const generateScript = action({
       // Build content array for vision API
       // NOTE: We need to convert images to base64 because Convex URLs are private/expire
       type ContentPart = { type: "text"; text: string } | { type: "image"; image: string | URL };
+      const userPromptText = prompts.scriptGeneration.user(prompt, style);
       const contentParts: ContentPart[] = [
-        { type: "text", text: prompt }
+        { type: "text", text: userPromptText }
       ];
       
       console.log("[script] converting images to base64 for OpenAI...");
@@ -645,10 +646,11 @@ export const generateScript = action({
       // If no valid images, generate script without visual context
       if (imageCount === 0) {
         console.warn("[script] no valid images found, generating script from prompt only");
+        const userPromptText = prompts.scriptGeneration.user(prompt, style);
         const { text } = await generateText({
           model: openai("gpt-4o"),
           system: prompts.scriptGeneration.system(style),
-          prompt: `${prompt}\n\nNote: No visual media was provided or could be processed. Create the script based solely on the text prompt above.`,
+          prompt: userPromptText,
         });
         
         const processedScript = text.replace(/\?/g, '???');
