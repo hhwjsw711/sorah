@@ -413,7 +413,14 @@ export const processProjectWithAI = action({
       }
 
       console.log("[ai-process] step 4: animating images");
-      const imageOnlyUrls = fileUrls.filter((url: string) => isImageUrl(url));
+      const imageStorageIds = new Set(
+        (project.fileMetadata || [])
+          .filter((m) => m.contentType.startsWith("image/"))
+          .map((m) => m.storageId)
+      );
+      const imageOnlyUrls = fileUrls.filter(
+        (_url, i) => project.files[i] && imageStorageIds.has(project.files[i])
+      );
       for (let i = 0; i < Math.min(imageOnlyUrls.length, 3); i++) {
         console.log(`[ai-process] animating image ${i + 1}/${imageOnlyUrls.length}`);
         const animateResult = await ctx.runAction(api.aiServices.animateImage, {
@@ -610,7 +617,14 @@ export const regenerateAnimations = action({
         throw new Error("project not found");
       }
 
-      const imageUrls = project.fileUrls?.filter((url: string | null): url is string => url !== null && isImageUrl(url)) || [];
+      const imageStorageIds = new Set(
+        (project.fileMetadata || [])
+          .filter((m) => m.contentType.startsWith("image/"))
+          .map((m) => m.storageId)
+      );
+      const imageUrls = (project.fileUrls || []).filter(
+        (_url, i) => project.files[i] && imageStorageIds.has(project.files[i])
+      ) as string[];
       if (imageUrls.length === 0) {
         throw new Error("no images found");
       }

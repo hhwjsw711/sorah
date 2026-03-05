@@ -3,7 +3,6 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { fal } from "@fal-ai/client";
-import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { api } from "./_generated/api";
@@ -68,7 +67,7 @@ export const animateImage = action({
       const falImageUrl = await fal.storage.upload(imageBlob);
       console.log("[animate] image uploaded to FAL storage:", falImageUrl);
 
-      const result = await fal.subscribe("fal-ai/kling-video/v2.5-turbo/pro/image-to-video", {
+      const result = await fal.subscribe("fal-ai/kling-video/v2.5-turbo/standard/image-to-video", {
         input: {
           prompt,
           image_url: falImageUrl,
@@ -114,23 +113,20 @@ function convertTimestampsToSRT(characters: string[], startTimes: number[], endT
 
   for (let i = 0; i < characters.length; i++) {
     const char = characters[i];
-    
+
     if (char === " " || i === characters.length - 1) {
       if (i === characters.length - 1 && char !== " ") {
         currentWord += char;
         wordEndTime = endTimes[i];
       }
-      
+
       if (currentWord.trim().length > 0) {
-        const startTime = formatTime(wordStartTime);
-        const endTime = formatTime(wordEndTime);
-        
         srt += `${index}\n`;
-        srt += `${startTime} --> ${endTime}\n`;
+        srt += `${formatTime(wordStartTime)} --> ${formatTime(wordEndTime)}\n`;
         srt += `${currentWord.trim()}\n\n`;
         index++;
       }
-      
+
       currentWord = "";
       if (i < characters.length - 1) {
         wordStartTime = startTimes[i + 1];
@@ -150,54 +146,67 @@ function convertTimestampsToSRT(characters: string[], startTimes: number[], endT
 export const generateVoiceover = action({
   args: {
     text: v.string(),
-    voiceId: v.optional(v.string()),
+    voice: v.optional(v.string()),
   },
-  handler: async (ctx, { text, voiceId = "J5Tvc0PBEsF1Qd2KBTey" }): Promise<{ success: boolean; audioUrl?: string | null; durationMs?: number; srtContent?: string; error?: string }> => {
-    console.log("[voiceover] generating voiceover with timestamps");
-    
+  handler: async (ctx, { text, voice = "Rachel" }): Promise<{ success: boolean; audioUrl?: string | null; durationMs?: number; srtContent?: string; error?: string }> => {
+    console.log("[voiceover] generating voiceover with fal ElevenLabs TTS");
+
     try {
-      const apiKey = process.env.ELEVENLABS_API_KEY;
+      const apiKey = process.env.FAL_API_KEY;
       if (!apiKey) {
-        throw new Error("ELEVENLABS_API_KEY not set");
+        throw new Error("FAL_API_KEY not set");
       }
 
-      const client = new ElevenLabsClient({
-        apiKey,
-      });
+      fal.config({ credentials: apiKey });
 
-      const result = await client.textToSpeech.convertWithTimestamps(voiceId, {
-        text,
-        modelId: "eleven_multilingual_v2",
-        outputFormat: "mp3_44100_128",
-        voiceSettings: {
+      const result = await fal.subscribe("fal-ai/elevenlabs/tts/multilingual-v2", {
+        input: {
+          text,
+          voice,
           stability: 0.5,
-          similarityBoost: 1.0,
+          similarity_boost: 1.0,
           style: 0.0,
-          useSpeakerBoost: true,
           speed: 1.2,
+          timestamps: true,
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            update.logs.map((log) => log.message).forEach((msg) => console.log("[voiceover]", msg));
+          }
         },
       });
 
-      console.log("[voiceover] voiceover generated with timestamps");
-      
-      const audioBuffer = Buffer.from(result.audioBase64, 'base64');
+      console.log("[voiceover] voiceover generated");
+
+      const data = result.data as {
+        audio: { url: string };
+        timestamps?: Array<{
+          characters: string[];
+          character_start_times_seconds: number[];
+          character_end_times_seconds: number[];
+        }>;
+      };
+      const audioResponse = await fetch(data.audio.url);
+      const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
       console.log("[voiceover] audio size:", audioBuffer.length);
-      
+
       const bitrate = 128000;
       const durationMs = Math.floor((audioBuffer.length * 8 / bitrate) * 1000);
       console.log("[voiceover] estimated duration:", durationMs, "ms");
-      
+
       let srtContent: string | undefined;
-      if (result.alignment) {
+      if (data.timestamps && data.timestamps.length > 0) {
         console.log("[voiceover] converting timestamps to SRT");
+        const t = data.timestamps[0];
         srtContent = convertTimestampsToSRT(
-          result.alignment.characters,
-          result.alignment.characterStartTimesSeconds,
-          result.alignment.characterEndTimesSeconds
+          t.characters,
+          t.character_start_times_seconds,
+          t.character_end_times_seconds
         );
         console.log("[voiceover] SRT generated, length:", srtContent.length, "chars");
       }
-      
+
       const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const uploadResponse = await fetch(uploadUrl, {
         method: "POST",
@@ -206,7 +215,7 @@ export const generateVoiceover = action({
       });
       const { storageId } = await uploadResponse.json();
       const audioUrl = await ctx.storage.getUrl(storageId);
-      
+
       console.log("[voiceover] voiceover uploaded to storage");
       return { success: true, audioUrl, durationMs, srtContent };
     } catch (error) {
@@ -225,41 +234,35 @@ export const generateMusic = action({
     durationMs: v.optional(v.number()),
   },
   handler: async (ctx, { prompt, durationMs = 15000 }): Promise<{ success: boolean; musicUrl?: string | null; error?: string }> => {
-    console.log("[music] generating background music");
-    
+    console.log("[music] generating background music with fal ElevenLabs Music");
+
     try {
-      const apiKey = process.env.ELEVENLABS_API_KEY;
+      const apiKey = process.env.FAL_API_KEY;
       if (!apiKey) {
-        throw new Error("ELEVENLABS_API_KEY not set");
+        throw new Error("FAL_API_KEY not set");
       }
 
-      const client = new ElevenLabsClient({
-        apiKey,
+      fal.config({ credentials: apiKey });
+
+      const result = await fal.subscribe("fal-ai/elevenlabs/music", {
+        input: {
+          prompt,
+          music_length_ms: durationMs,
+          force_instrumental: true,
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            update.logs.map((log) => log.message).forEach((msg) => console.log("[music]", msg));
+          }
+        },
       });
 
-      const audioStream = await client.music.compose({
-        prompt,
-        musicLengthMs: durationMs,
-      });
-
-      const chunks: Uint8Array[] = [];
-      const reader = audioStream.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-      
-      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-      const audioBuffer = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        audioBuffer.set(chunk, offset);
-        offset += chunk.length;
-      }
-
+      const data = result.data as { audio: { url: string } };
+      const audioResponse = await fetch(data.audio.url);
+      const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
       console.log("[music] music generated, size:", audioBuffer.length);
-      
+
       const uploadUrl = await ctx.runMutation(api.tasks.generateUploadUrl, {});
       const uploadResponse = await fetch(uploadUrl, {
         method: "POST",
@@ -268,7 +271,7 @@ export const generateMusic = action({
       });
       const { storageId } = await uploadResponse.json();
       const musicUrl = await ctx.storage.getUrl(storageId);
-      
+
       console.log("[music] music uploaded to storage");
       return { success: true, musicUrl };
     } catch (error) {

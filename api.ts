@@ -313,7 +313,7 @@ export type PublicApiType = {
     generateVoiceover: FunctionReference<
       "action",
       "public",
-      { text: string; voiceId?: string },
+      { text: string; voice?: string },
       any
     >;
   };
