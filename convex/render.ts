@@ -73,7 +73,7 @@ export const renderVideo = action({
         } catch (error) {
           console.log("[render] failed to connect to existing sandbox, creating new one:", error);
 
-          sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
+          sandbox = await Sandbox.betaCreate("mrpjv6iu3d3k30xzw3l2", {
             autoPause: true,
             timeoutMs: 3600000,
             envs: {
@@ -99,7 +99,7 @@ export const renderVideo = action({
           details: "initializing e2b environment with remotion template",
         });
         
-        sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
+        sandbox = await Sandbox.betaCreate("mrpjv6iu3d3k30xzw3l2", {
           autoPause: true,
           timeoutMs: 3600000,
           envs: {
@@ -768,7 +768,7 @@ export const createSequence = action({
           details: "initializing e2b environment",
         });
         
-        sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
+        sandbox = await Sandbox.betaCreate("mrpjv6iu3d3k30xzw3l2", {
           autoPause: true,
           timeoutMs: 3600000,
           envs: { ANTHROPIC_API_KEY: anthropicApiKey, ANTHROPIC_BASE_URL: anthropicBaseUrl },
@@ -1001,7 +1001,7 @@ export const step1StartSandbox = action({
 
       if (!sandbox) {
         console.log("[step1] creating new sandbox...");
-        sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
+        sandbox = await Sandbox.betaCreate("mrpjv6iu3d3k30xzw3l2", {
           autoPause: true,
           timeoutMs: 3600000,
           envs: { ANTHROPIC_API_KEY: anthropicApiKey, ANTHROPIC_BASE_URL: anthropicBaseUrl },
