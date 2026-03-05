@@ -48,10 +48,11 @@ export const renderVideo = action({
         throw new Error("E2B_API_KEY not set in convex environment variables");
       }
       
-      const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-      if (!claudeToken) {
-        throw new Error("CLAUDE_CODE_OAUTH_TOKEN not set in convex environment variables");
+      const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+      if (!anthropicApiKey) {
+        throw new Error("ANTHROPIC_API_KEY not set in convex environment variables");
       }
+      const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL || "https://cc.honoursoft.cn";
 
       let sandbox;
       if (project.sandboxId) {
@@ -76,7 +77,8 @@ export const renderVideo = action({
             autoPause: true,
             timeoutMs: 3600000,
             envs: {
-              CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
+              ANTHROPIC_API_KEY: anthropicApiKey,
+              ANTHROPIC_BASE_URL: anthropicBaseUrl,
             },
           });
 
@@ -101,7 +103,8 @@ export const renderVideo = action({
           autoPause: true,
           timeoutMs: 3600000,
           envs: {
-            CLAUDE_CODE_OAUTH_TOKEN: claudeToken,
+            ANTHROPIC_API_KEY: anthropicApiKey,
+            ANTHROPIC_BASE_URL: anthropicBaseUrl,
           },
         });
 
@@ -739,10 +742,11 @@ export const createSequence = action({
         throw new Error("E2B_API_KEY not set");
       }
       
-      const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-      if (!claudeToken) {
-        throw new Error("CLAUDE_CODE_OAUTH_TOKEN not set");
+      const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+      if (!anthropicApiKey) {
+        throw new Error("ANTHROPIC_API_KEY not set");
       }
+      const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL || "https://cc.honoursoft.cn";
 
       let sandbox;
       if (project.sandboxId) {
@@ -767,7 +771,7 @@ export const createSequence = action({
         sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
           autoPause: true,
           timeoutMs: 3600000,
-          envs: { CLAUDE_CODE_OAUTH_TOKEN: claudeToken },
+          envs: { ANTHROPIC_API_KEY: anthropicApiKey, ANTHROPIC_BASE_URL: anthropicBaseUrl },
         });
 
         sandbox.setTimeout(3600000);
@@ -978,8 +982,9 @@ export const step1StartSandbox = action({
       const project = await ctx.runQuery(api.tasks.getProject, { id: projectId });
       if (!project) throw new Error("project not found");
 
-      const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-      if (!claudeToken) throw new Error("CLAUDE_CODE_OAUTH_TOKEN not set");
+      const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+      if (!anthropicApiKey) throw new Error("ANTHROPIC_API_KEY not set");
+      const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL || "https://cc.honoursoft.cn";
 
       let sandbox;
       if (project.sandboxId) {
@@ -999,7 +1004,7 @@ export const step1StartSandbox = action({
         sandbox = await Sandbox.betaCreate("8r14p0kvwebvpgno5hia", {
           autoPause: true,
           timeoutMs: 3600000,
-          envs: { CLAUDE_CODE_OAUTH_TOKEN: claudeToken },
+          envs: { ANTHROPIC_API_KEY: anthropicApiKey, ANTHROPIC_BASE_URL: anthropicBaseUrl },
         });
 
         sandbox.setTimeout(3600000);
